@@ -1,0 +1,34 @@
+{
+  "name"       : "jupitern/cosmosdb",
+  "description": "azure cosmosdb for PHP",
+  "keywords"   : ["azure cosmosdb", "cosmosdb", "documentdb"],
+  "homepage"   : "https://github.com/jupitern/cosmosdb",
+  "license"    : "MIT",
+  "authors"    : [
+    {
+      "name"    : "Nuno Chaves",
+      "email"   : "nunochaves@sapo.pt",
+      "role"    : "Developer"
+    },
+    {
+      
+    }
+  ],
+  "support": {
+    "source": "https://github.com/jupitern/cosmosdb",
+    "issues": "https://github.com/jupitern/cosmosdb/issues"
+  },
+  "require"    :{
+    "php":">=7.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Jupitern\\CosmosDb\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+
+    }
+  }
+}
