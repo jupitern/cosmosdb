@@ -142,6 +142,43 @@ class QueryBuilder
         return $this;
     }
 
+    /* insert / update */
+
+    public function setDocument($document)
+    {
+        if (is_array($document) || is_object($document)) {
+            $this->document = json_encode($document);
+        }
+
+        return $this;
+    }
+
+
+    public function save($document)
+    {
+        $rid = null;
+
+        if (is_array($document) || is_object($document)) {
+            if (is_object($document) && isset($document->_rid)) $rid = $document->_rid;
+            elseif (is_array($document) && array_key_exists('_rid', $document)) $rid = $document['_rid'];
+
+            $document = json_encode($document);
+        }
+
+        $col = $this->connection->selectCollection($this->collection);
+        $result = $rid ?
+            $col->replaceDocument($rid, $document) :
+            $col->createDocument($document);
+        $resultObj = json_decode($result);
+
+        if (isset($resultObj->code) && isset($resultObj->message)) {
+            throw new \Exception("$resultObj->code : $resultObj->message");
+        }
+
+        return $resultObj->_rid ?? null;
+    }
+
+    /* DELETE */
 
     /**
      * @return $this
@@ -181,6 +218,8 @@ class QueryBuilder
     }
 
 
+    /* helpers */
+
     /**
      * @return string
      */
@@ -188,8 +227,6 @@ class QueryBuilder
     {
         return $this->response;
     }
-
-
     /**
      * @return mixed
      */
@@ -197,13 +234,9 @@ class QueryBuilder
     {
         $res = json_decode($this->response);
         $docs = $res->Documents ?? [];
-
         if (!is_array($docs) || empty($docs)) return [];
-
         return count($docs) > 1 ? $docs : $docs[0];
     }
-
-
     /**
      * @return array|mixed
      */
@@ -211,11 +244,8 @@ class QueryBuilder
     {
         $res = json_decode($this->response);
         $docs = $res->Documents ?? [];
-
         return $this->multipleResults == true && count($docs) > 0 ? $docs : $docs[0];
     }
-
-
     /**
      * @param $fieldName
      * @param null $default
@@ -224,7 +254,6 @@ class QueryBuilder
     public function getValue($fieldName, $default = null)
     {
         $obj = $this->toObject();
-
         return isset($obj->{$fieldName}) ? $obj->{$fieldName} : $default;
     }
 
