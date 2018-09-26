@@ -19,7 +19,8 @@
     "issues": "https://github.com/jupitern/cosmosdb/issues"
   },
   "require"    :{
-    "php":">=7.0"
+    "php":">=7.0",
+    "pear/http_request2": "2.3.*"
   },
   "autoload": {
     "psr-4": {
