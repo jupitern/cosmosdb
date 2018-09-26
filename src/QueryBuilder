@@ -126,8 +126,12 @@ class QueryBuilder
         $this->response = null;
         $this->multipleResults = false;
 
-        $doc = $this->find();
-        $this->response = $col->deleteDocument($doc->_rid);
+        $doc = $this->find()->toObject();
+
+        if ($doc) {
+            $col = $this->connection->selectCollection($this->collection);
+            $this->response = $col->deleteDocument($doc->_rid);
+        }
 
         return $this;
     }
@@ -137,9 +141,10 @@ class QueryBuilder
     {
         $this->response = null;
         $this->multipleResults = true;
+        $col = $this->connection->selectCollection($this->collection);
 
         $response = [];
-        foreach ($this->findAll() as $doc) {
+        foreach ((array)$this->findAll()->toObject() as $doc) {
             $response[] = $col->deleteDocument($doc->_rid);
         }
 
@@ -154,12 +159,23 @@ class QueryBuilder
     }
 
 
+    public function toObject()
+    {
+        $res = json_decode($this->response);
+        $docs = $res->Documents ?? [];
+
+        if (!is_array($docs) || empty($docs)) return [];
+
+        return count($docs) > 1 ? $docs : $docs[0];
+    }
+
+
     public function toArray()
     {
         $res = json_decode($this->response);
         $docs = $res->Documents ?? [];
 
-        return $this->multipleResults == false && count($docs) > 0 ? $docs[0] : $docs;
+        return $this->multipleResults == true && count($docs) > 0 ? $docs : $docs[0];
     }
 
 }
