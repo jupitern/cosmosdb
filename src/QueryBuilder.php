@@ -29,6 +29,10 @@ class QueryBuilder
     }
 
 
+    /**
+     * @param CosmosDbDatabase $connection
+     * @return $this
+     */
     public function setConnection(CosmosDbDatabase $connection)
     {
         $this->connection = $connection;
@@ -36,6 +40,10 @@ class QueryBuilder
     }
 
 
+    /**
+     * @param $collection
+     * @return $this
+     */
     public function collection($collection)
     {
         $this->collection = $collection;
@@ -43,6 +51,10 @@ class QueryBuilder
     }
 
 
+    /**
+     * @param $fields
+     * @return $this
+     */
     public function select($fields)
     {
         $this->fields = $fields;
@@ -50,6 +62,10 @@ class QueryBuilder
     }
 
 
+    /**
+     * @param $join
+     * @return $this
+     */
     public function join($join)
     {
         $this->join = $join;
@@ -57,6 +73,10 @@ class QueryBuilder
     }
 
 
+    /**
+     * @param $where
+     * @return $this
+     */
     public function where($where)
     {
         $this->where = $where;
@@ -64,6 +84,10 @@ class QueryBuilder
     }
 
 
+    /**
+     * @param $order
+     * @return $this
+     */
     public function order($order)
     {
         $this->order = $order;
@@ -71,6 +95,10 @@ class QueryBuilder
     }
 
 
+    /**
+     * @param $limit
+     * @return $this
+     */
     public function limit($limit)
     {
         $this->limit = $limit;
@@ -78,6 +106,9 @@ class QueryBuilder
     }
 
 
+    /**
+     * @return $this
+     */
     public function findAll()
     {
         $this->response = null;
@@ -97,6 +128,9 @@ class QueryBuilder
     }
 
 
+    /**
+     * @return $this
+     */
     public function find()
     {
         $this->response = null;
@@ -109,18 +143,9 @@ class QueryBuilder
     }
 
 
-    public function getValue($fieldName)
-    {
-        $this->response = null;
-        $this->multipleResults = false;
-
-        $this->limit = 1;
-        $this->response =  $this->find();
-
-        return $this;
-    }
-
-
+    /**
+     * @return $this
+     */
     public function delete()
     {
         $this->response = null;
@@ -137,6 +162,9 @@ class QueryBuilder
     }
 
 
+    /**
+     * @return $this
+     */
     public function deleteAll()
     {
         $this->response = null;
@@ -153,12 +181,18 @@ class QueryBuilder
     }
 
 
+    /**
+     * @return string
+     */
     public function toJson()
     {
         return $this->response;
     }
 
 
+    /**
+     * @return mixed
+     */
     public function toObject()
     {
         $res = json_decode($this->response);
@@ -170,12 +204,28 @@ class QueryBuilder
     }
 
 
+    /**
+     * @return array|mixed
+     */
     public function toArray()
     {
         $res = json_decode($this->response);
         $docs = $res->Documents ?? [];
 
         return $this->multipleResults == true && count($docs) > 0 ? $docs : $docs[0];
+    }
+
+
+    /**
+     * @param $fieldName
+     * @param null $default
+     * @return mixed
+     */
+    public function getValue($fieldName, $default = null)
+    {
+        $obj = $this->toObject();
+
+        return isset($obj->{$fieldName}) ? $obj->{$fieldName} : $default;
     }
 
 }
