@@ -1,5 +1,5 @@
 # cosmosdb
-azure cosmos db for PHP
+PHP wrapper for Azure Cosmos DB
 
 ## Installation
 
