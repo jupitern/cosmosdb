@@ -136,8 +136,14 @@ class QueryBuilder
         $this->response = null;
         $this->multipleResults = false;
 
-        $this->limit = 1;
-        $this->findAll();
+        $fields = !empty($this->fields) ? $this->fields : '*';
+        $where = $this->where != "" ? "where {$this->where}" : "";
+        $order = $this->order != "" ? "order by {$this->order}" : "";
+
+        $query = "SELECT top 1 {$fields} FROM {$this->collection} {$this->join} {$where} {$order}";
+
+        $col = $this->connection->selectCollection($this->collection);
+        $this->response = $col->query($query);
 
         return $this;
     }
@@ -186,8 +192,6 @@ class QueryBuilder
     public function delete()
     {
         $this->response = null;
-        $this->multipleResults = false;
-
         $doc = $this->find()->toObject();
 
         if ($doc) {
@@ -205,7 +209,6 @@ class QueryBuilder
     public function deleteAll()
     {
         $this->response = null;
-        $this->multipleResults = true;
         $col = $this->connection->selectCollection($this->collection);
 
         $response = [];
@@ -235,7 +238,8 @@ class QueryBuilder
         $res = json_decode($this->response);
         $docs = $res->Documents ?? [];
         if (!is_array($docs) || empty($docs)) return [];
-        return count($docs) > 1 ? $docs : $docs[0];
+
+        return $this->multipleResults == true ? $docs : $docs[0];
     }
     /**
      * @return array|mixed
@@ -244,7 +248,7 @@ class QueryBuilder
     {
         $res = json_decode($this->response);
         $docs = $res->Documents ?? [];
-        return $this->multipleResults == true && count($docs) > 0 ? $docs : $docs[0];
+        return $this->multipleResults == true ? $docs : $docs[0];
     }
     /**
      * @param $fieldName
