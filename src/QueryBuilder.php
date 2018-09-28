@@ -150,6 +150,10 @@ class QueryBuilder
 
     /* insert / update */
 
+    /**
+     * @param $document
+     * @return $this
+     */
     public function setDocument($document)
     {
         if (is_array($document) || is_object($document)) {
@@ -160,6 +164,11 @@ class QueryBuilder
     }
 
 
+    /**
+     * @param $document
+     * @return null
+     * @throws \Exception
+     */
     public function save($document)
     {
         $rid = null;
@@ -230,6 +239,7 @@ class QueryBuilder
     {
         return $this->response;
     }
+
     /**
      * @return mixed
      */
@@ -239,8 +249,13 @@ class QueryBuilder
         $docs = $res->Documents ?? [];
         if (!is_array($docs) || empty($docs)) return [];
 
-        return $this->multipleResults == true ? $docs : $docs[0];
+        if ($this->multipleResults) {
+            return $docs;
+        }
+
+        return isset($docs[0]) ? $docs[0] : null;
     }
+
     /**
      * @return array|mixed
      */
@@ -248,8 +263,14 @@ class QueryBuilder
     {
         $res = json_decode($this->response);
         $docs = $res->Documents ?? [];
-        return $this->multipleResults == true ? $docs : $docs[0];
+
+        if ($this->multipleResults) {
+            return $docs;
+        }
+
+        return isset($docs[0]) ? $docs[0] : null;
     }
+
     /**
      * @param $fieldName
      * @param null $default
