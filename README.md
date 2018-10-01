@@ -12,7 +12,14 @@ Include jupitern/table in your project, by adding it to your composer.json file.
 }
 ```
 
+## Note
+
+this package adds funccionalities to the package bellow so all funccionalities provided in base package are also available
+
+https://github.com/cocteau666/AzureDocumentDB-PHP
+
 ## Usage
+
 ```php
 
 $conn = app()->resolve('DocDB');
