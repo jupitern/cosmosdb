@@ -114,28 +114,7 @@ class QueryBuilder
     public function params($params)
     {
         $this->params = $params;
-        return $this;
-    }
-
-
-    /**
-     * @return $this
-     */
-    public function find()
-    {
-        $this->response = null;
-        $this->multipleResults = false;
-
-        $fields = !empty($this->fields) ? $this->fields : '*';
-        $where = $this->where != "" ? "where {$this->where}" : "";
-        $order = $this->order != "" ? "order by {$this->order}" : "";
-
-        $query = "SELECT top 1 {$fields} FROM {$this->collection} {$this->join} {$where} {$order}";
-
-        $col = $this->connection->selectCollection($this->collection);
-        $this->response = $col->query($query, $this->params);
-
-        return $this;
+        return $params;
     }
 
 
@@ -153,6 +132,27 @@ class QueryBuilder
         $order = $this->order != "" ? "order by {$this->order}" : "";
 
         $query = "SELECT {$limit} {$fields} FROM {$this->collection} {$this->join} {$where} {$order}";
+
+        $col = $this->connection->selectCollection($this->collection);
+        $this->response = $col->query($query, $this->params);
+
+        return $this;
+    }
+
+
+    /**
+     * @return $this
+     */
+    public function find()
+    {
+        $this->response = null;
+        $this->multipleResults = false;
+
+        $fields = !empty($this->fields) ? $this->fields : '*';
+        $where = $this->where != "" ? "where {$this->where}" : "";
+        $order = $this->order != "" ? "order by {$this->order}" : "";
+
+        $query = "SELECT top 1 {$fields} FROM {$this->collection} {$this->join} {$where} {$order}";
 
         $col = $this->connection->selectCollection($this->collection);
         $this->response = $col->query($query, $this->params);
