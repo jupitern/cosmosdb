@@ -57,8 +57,15 @@ class CosmosDbCollection
      * @param string $query Query
      * @return string JSON strings
      */
-    public function query($query)
+    public function query($query, $params = [])
     {
+        $paramsJson = [];
+        foreach ($params as $key => $val) {
+            $paramsJson[] = '{"name": "'.str_replace('"', '\\"', $key).'", "value": "'.str_replace('"', '\\"', $val).'"}';
+        }
+
+        $query = '{"query": "'.str_replace('"', '\\"', $query).'", "parameters": ['.implode(',', $paramsJson).']}';
+
         return $this->document_db->query($this->rid_db, $this->rid_col, $query);
     }
 
