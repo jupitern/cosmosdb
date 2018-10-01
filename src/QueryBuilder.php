@@ -13,6 +13,7 @@ class QueryBuilder
     private $where = "";
     private $order = null;
     private $limit = null;
+    private $params = [];
 
     private $response = null;
     private $multipleResults = false;
@@ -107,23 +108,12 @@ class QueryBuilder
 
 
     /**
+     * @param $limit
      * @return $this
      */
-    public function findAll()
+    public function params($params)
     {
-        $this->response = null;
-        $this->multipleResults = true;
-
-        $limit = $this->limit != null ? "top ".(int)$this->limit : "";
-        $fields = !empty($this->fields) ? $this->fields : '*';
-        $where = $this->where != "" ? "where {$this->where}" : "";
-        $order = $this->order != "" ? "order by {$this->order}" : "";
-
-        $query = "SELECT {$limit} {$fields} FROM {$this->collection} {$this->join} {$where} {$order}";
-
-        $col = $this->connection->selectCollection($this->collection);
-        $this->response = $col->query($query);
-
+        $this->params = $params;
         return $this;
     }
 
@@ -143,7 +133,29 @@ class QueryBuilder
         $query = "SELECT top 1 {$fields} FROM {$this->collection} {$this->join} {$where} {$order}";
 
         $col = $this->connection->selectCollection($this->collection);
-        $this->response = $col->query($query);
+        $this->response = $col->query($query, $this->params);
+
+        return $this;
+    }
+
+
+    /**
+     * @return $this
+     */
+    public function findAll()
+    {
+        $this->response = null;
+        $this->multipleResults = true;
+
+        $limit = $this->limit != null ? "top ".(int)$this->limit : "";
+        $fields = !empty($this->fields) ? $this->fields : '*';
+        $where = $this->where != "" ? "where {$this->where}" : "";
+        $order = $this->order != "" ? "order by {$this->order}" : "";
+
+        $query = "SELECT {$limit} {$fields} FROM {$this->collection} {$this->join} {$where} {$order}";
+
+        $col = $this->connection->selectCollection($this->collection);
+        $this->response = $col->query($query, $this->params);
 
         return $this;
     }
