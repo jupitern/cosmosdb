@@ -17,6 +17,7 @@ Include jupitern/table in your project, by adding it to your composer.json file.
 
 $conn = app()->resolve('DocDB');
 
+// insert a record
 $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setConnection($conn)
     ->collection("Users")
@@ -24,6 +25,7 @@ $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
 
 echo "record inserted: $rid";
 
+// insert a record
 $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setConnection($conn)
     ->collection("Users")
@@ -31,6 +33,7 @@ $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
 
 echo "record inserted: $rid";
 
+// update a record
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setConnection($conn)
     ->collection("Users")
@@ -43,7 +46,8 @@ $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setConnection($conn)
     ->collection("Users")
     ->select("Users.id, Users.name")
-    ->where("Users.age > 30")
+    ->where("Users.age > @age")
+    ->params(['@age' => 30])
     ->find()
     ->toArray();
 
@@ -61,7 +65,7 @@ $res = \Jupitern\CosmosDb\QueryBuilder::instance()
 
 var_dump($res);
 
-// delete one document
+// delete one document that match criteria
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setConnection($conn)
     ->collection("Users")
@@ -70,7 +74,7 @@ $res = \Jupitern\CosmosDb\QueryBuilder::instance()
 
 var_dump($res);
 
-// delete all documents
+// delete all documents that match criteria
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setConnection($conn)
     ->collection("Users")
@@ -78,3 +82,4 @@ $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->deleteAll();
 
 var_dump($res);
+
