@@ -20,7 +20,7 @@
   },
   "require"    :{
     "php":">=7.0",
-    "pear/http_request2": "2.3.*"
+    "guzzlehttp/guzzle": "~6.0"
   },
   "autoload": {
     "psr-4": {
