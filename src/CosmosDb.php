@@ -29,15 +29,14 @@ namespace Jupitern\CosmosDb;
  * @author Takeshi SAKURAI <sakurai@pnop.co.jp>
  * @since PHP 5.3
  */
-//
 
-use HTTP_Request2;
 
 class CosmosDb
 {
     private $host;
     private $master_key;
     private $debug;
+    public $httpClientOptions = true;
 
     /**
      * __construct
@@ -52,6 +51,16 @@ class CosmosDb
         $this->host = $host;
         $this->master_key = $master_key;
         $this->debug = $debug;
+    }
+
+    /**
+     * set guzzle http client options using a associative array.
+     *
+     * @param array $options
+     */
+    public function setHttpClientOptions($options = [])
+    {
+        $this->httpClientOptions = $options;
     }
 
     /**
@@ -80,14 +89,14 @@ class CosmosDb
 
         $sig = base64_encode(hash_hmac('sha256', strtolower($string_to_sign), $key, true));
 
-        return Array(
-            'Accept: application/json',
-            'User-Agent: documentdb.php.sdk/1.0.0',
-            'Cache-Control: no-cache',
-            'x-ms-date: ' . $x_ms_date,
-            'x-ms-version: ' . $x_ms_version,
-            'authorization: ' . urlencode("type=$master&ver=$token&sig=$sig")
-        );
+        return [
+            'Accept' => 'application/json',
+            'User-Agent' => 'documentdb.php.sdk/1.0.0',
+            'Cache-Control' => 'no-cache',
+            'x-ms-date' => $x_ms_date,
+            'x-ms-version' => $x_ms_version,
+            'authorization' => urlencode("type=$master&ver=$token&sig=$sig")
+        ];
     }
 
     /**
@@ -104,31 +113,20 @@ class CosmosDb
      */
     private function request($path, $method, $headers, $body = NULL)
     {
-        $request = new Http_Request2($this->host . $path);
-        $request->setConfig(array(
-            'ssl_verify_peer' => FALSE,
-            'ssl_verify_host' => FALSE
-        ));
-        $request->setHeader($headers);
-        if ($method === "GET") {
-            $request->setMethod(HTTP_Request2::METHOD_GET);
-        } else if ($method === "POST") {
-            $request->setMethod(HTTP_Request2::METHOD_POST);
-        } else if ($method === "PUT") {
-            $request->setMethod(HTTP_Request2::METHOD_PUT);
-        } else if ($method === "DELETE") {
-            $request->setMethod(HTTP_Request2::METHOD_DELETE);
-        }
-        if ($body) {
-            $request->setBody($body);
-        }
-        try {
-            $response = $request->send();
-            return $response->getBody();
-        } catch (HttpException $ex) {
-            return $ex;
-        }
+        $client = new \GuzzleHttp\Client();
 
+        $options = [
+            'verify' => false,
+            'headers' => $headers,
+            'body' => $body,
+        ];
+
+        $response = $client->request($method, $this->host . $path, array_merge(
+            $options,
+            $this->httpClientOptions
+        ));
+
+        return $response->getBody()->getContents();
     }
 
     /**
@@ -168,7 +166,7 @@ class CosmosDb
     public function getInfo()
     {
         $headers = $this->getAuthHeaders('GET', '', '');
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("", "GET", $headers);
     }
 
@@ -185,10 +183,10 @@ class CosmosDb
     public function query($rid_id, $rid_col, $query)
     {
         $headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
-        $headers[] = 'Content-Length:' . strlen($query);
-        $headers[] = 'Content-Type:application/query+json';
-        $headers[] = 'x-ms-max-item-count:-1';
-        $headers[] = 'x-ms-documentdb-isquery:True';
+        $headers['Content-Length'] = strlen($query);
+        $headers['Content-Type'] = 'application/query+json';
+        $headers['x-ms-max-item-count'] = -1;
+        $headers['x-ms-documentdb-isquery'] = True;
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);
     }
 
@@ -202,7 +200,7 @@ class CosmosDb
     public function listDatabases()
     {
         $headers = $this->getAuthHeaders('GET', 'dbs', '');
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs", "GET", $headers);
     }
 
@@ -217,7 +215,7 @@ class CosmosDb
     public function getDatabase($rid_id)
     {
         $headers = $this->getAuthHeaders('GET', 'dbs', $rid_id);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id, "GET", $headers);
     }
 
@@ -232,7 +230,7 @@ class CosmosDb
     public function createDatabase($json)
     {
         $headers = $this->getAuthHeaders('POST', 'dbs', '');
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs", "POST", $headers, $json);
     }
 
@@ -248,7 +246,7 @@ class CosmosDb
     public function replaceDatabase($rid_id, $json)
     {
         $headers = $this->getAuthHeaders('PUT', 'dbs', $rid_id);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id, "PUT", $headers, $json);
     }
 
@@ -263,7 +261,7 @@ class CosmosDb
     public function deleteDatabase($rid_id)
     {
         $headers = $this->getAuthHeaders('DELETE', 'dbs', $rid_id);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id, "DELETE", $headers);
     }
 
@@ -278,7 +276,7 @@ class CosmosDb
     public function listUsers($rid_id)
     {
         $headers = $this->getAuthHeaders('GET', 'users', $rid_id);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/users", "GET", $headers);
     }
 
@@ -294,7 +292,7 @@ class CosmosDb
     public function getUser($rid_id, $rid_user)
     {
         $headers = $this->getAuthHeaders('GET', 'users', $rid_user);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user, "GET", $headers);
     }
 
@@ -310,7 +308,7 @@ class CosmosDb
     public function createUser($rid_id, $json)
     {
         $headers = $this->getAuthHeaders('POST', 'users', $rid_id);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/users", "POST", $headers, $json);
     }
 
@@ -327,7 +325,7 @@ class CosmosDb
     public function replaceUser($rid_id, $rid_user, $json)
     {
         $headers = $this->getAuthHeaders('PUT', 'users', $rid_user);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user, "PUT", $headers, $json);
     }
 
@@ -343,7 +341,7 @@ class CosmosDb
     public function deleteUser($rid_id, $rid_user)
     {
         $headers = $this->getAuthHeaders('DELETE', 'users', $rid_user);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user, "DELETE", $headers);
     }
 
@@ -358,7 +356,7 @@ class CosmosDb
     public function listCollections($rid_id)
     {
         $headers = $this->getAuthHeaders('GET', 'colls', $rid_id);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls", "GET", $headers);
     }
 
@@ -374,7 +372,7 @@ class CosmosDb
     public function getCollection($rid_id, $rid_col)
     {
         $headers = $this->getAuthHeaders('GET', 'colls', $rid_col);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col, "GET", $headers);
     }
 
@@ -390,7 +388,7 @@ class CosmosDb
     public function createCollection($rid_id, $json)
     {
         $headers = $this->getAuthHeaders('POST', 'colls', $rid_id);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls", "POST", $headers, $json);
     }
 
@@ -406,7 +404,7 @@ class CosmosDb
     public function deleteCollection($rid_id, $rid_col)
     {
         $headers = $this->getAuthHeaders('DELETE', 'colls', $rid_col);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col, "DELETE", $headers);
     }
 
@@ -422,7 +420,7 @@ class CosmosDb
     public function listDocuments($rid_id, $rid_col)
     {
         $headers = $this->getAuthHeaders('GET', 'docs', $rid_col);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "GET", $headers);
     }
 
@@ -439,7 +437,7 @@ class CosmosDb
     public function getDocument($rid_id, $rid_col, $rid_doc)
     {
         $headers = $this->getAuthHeaders('GET', 'docs', $rid_doc);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         $options = array(
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_HTTPGET => true,
@@ -460,7 +458,7 @@ class CosmosDb
     public function createDocument($rid_id, $rid_col, $json)
     {
         $headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $json);
     }
 
@@ -478,7 +476,7 @@ class CosmosDb
     public function replaceDocument($rid_id, $rid_col, $rid_doc, $json)
     {
         $headers = $this->getAuthHeaders('PUT', 'docs', $rid_doc);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc, "PUT", $headers, $json);
     }
 
@@ -495,7 +493,7 @@ class CosmosDb
     public function deleteDocument($rid_id, $rid_col, $rid_doc)
     {
         $headers = $this->getAuthHeaders('DELETE', 'docs', $rid_doc);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc, "DELETE", $headers);
     }
 
@@ -512,7 +510,7 @@ class CosmosDb
     public function listAttachments($rid_id, $rid_col, $rid_doc)
     {
         $headers = $this->getAuthHeaders('GET', 'attachments', $rid_doc);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments", "GET", $headers);
     }
 
@@ -530,7 +528,7 @@ class CosmosDb
     public function getAttachment($rid_id, $rid_col, $rid_doc, $rid_at)
     {
         $headers = $this->getAuthHeaders('GET', 'attachments', $rid_at);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments/" . $rid_at, "GET", $headers);
     }
 
@@ -550,9 +548,9 @@ class CosmosDb
     public function createAttachment($rid_id, $rid_col, $rid_doc, $content_type, $filename, $file)
     {
         $headers = $this->getAuthHeaders('POST', 'attachments', $rid_doc);
-        $headers[] = 'Content-Length:' . strlen($file);
-        $headers[] = 'Content-Type:' . $content_type;
-        $headers[] = 'Slug:' . urlencode($filename);
+        $headers['Content-Length'] = strlen($file);
+        $headers['Content-Type'] = $content_type;
+        $headers['Slug'] = urlencode($filename);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments", "POST", $headers, $file);
     }
 
@@ -573,9 +571,9 @@ class CosmosDb
     public function replaceAttachment($rid_id, $rid_col, $rid_doc, $rid_at, $content_type, $filename, $file)
     {
         $headers = $this->getAuthHeaders('PUT', 'attachments', $rid_at);
-        $headers[] = 'Content-Length:' . strlen($file);
-        $headers[] = 'Content-Type:' . $content_type;
-        $headers[] = 'Slug:' . urlencode($filename);
+        $headers['Content-Length'] = strlen($file);
+        $headers['Content-Type'] = $content_type;
+        $headers['Slug'] = urlencode($filename);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments/" . $rid_at, "PUT", $headers, $file);
     }
 
@@ -593,7 +591,7 @@ class CosmosDb
     public function deleteAttachment($rid_id, $rid_col, $rid_doc, $rid_at)
     {
         $headers = $this->getAuthHeaders('DELETE', 'attachments', $rid_at);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments/" . $rid_at, "DELETE", $headers);
     }
 
@@ -607,7 +605,7 @@ class CosmosDb
     public function listOffers()
     {
         $headers = $this->getAuthHeaders('GET', 'offers', '');
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/offers", "GET", $headers);
     }
 
@@ -622,7 +620,7 @@ class CosmosDb
     public function getOffer($rid)
     {
         $headers = $this->getAuthHeaders('GET', 'offers', $rid);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/offers/" . $rid, "GET", $headers);
     }
 
@@ -638,7 +636,7 @@ class CosmosDb
     public function replaceOffer($rid, $json)
     {
         $headers = $this->getAuthHeaders('PUT', 'offers', $rid);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/offers/" . $rid, "PUT", $headers, $json);
     }
 
@@ -653,9 +651,9 @@ class CosmosDb
     public function queryingOffers($json)
     {
         $headers = $this->getAuthHeaders('POST', 'offers', '');
-        $headers[] = 'Content-Length:' . strlen($json);
-        $headers[] = 'Content-Type:application/query+json';
-        $headers[] = 'x-ms-documentdb-isquery:True';
+        $headers['Content-Length'] = strlen($json);
+        $headers['Content-Type'] = 'application/query+json';
+        $headers['x-ms-documentdb-isquery'] = 'True';
         return $this->request("/offers", "POST", $headers, $json);
     }
 
@@ -671,7 +669,7 @@ class CosmosDb
     public function listPermissions($rid_id, $rid_user)
     {
         $headers = $this->getAuthHeaders('GET', 'permissions', $rid_user);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions", "GET", $headers);
     }
 
@@ -688,7 +686,7 @@ class CosmosDb
     public function createPermission($rid_id, $rid_user, $json)
     {
         $headers = $this->getAuthHeaders('POST', 'permissions', $rid_user);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions", "POST", $headers, $json);
     }
 
@@ -705,7 +703,7 @@ class CosmosDb
     public function getPermission($rid_id, $rid_user, $rid_permission)
     {
         $headers = $this->getAuthHeaders('GET', 'permissions', $rid_permission);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions/" . $rid_permission, "GET", $headers);
     }
 
@@ -723,7 +721,7 @@ class CosmosDb
     public function replacePermission($rid_id, $rid_user, $rid_permission, $json)
     {
         $headers = $this->getAuthHeaders('PUT', 'permissions', $rid_permission);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions/" . $rid_permission, "PUT", $headers, $json);
     }
 
@@ -740,7 +738,7 @@ class CosmosDb
     public function deletePermission($rid_id, $rid_user, $rid_permission)
     {
         $headers = $this->getAuthHeaders('DELETE', 'permissions', $rid_permission);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions/" . $rid_permission, "DELETE", $headers);
     }
 
@@ -756,7 +754,7 @@ class CosmosDb
     public function listStoredProcedures($rid_id, $rid_col)
     {
         $headers = $this->getAuthHeaders('GET', 'sprocs', $rid_col);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs", "GET", $headers);
     }
 
@@ -774,7 +772,7 @@ class CosmosDb
     public function executeStoredProcedure($rid_id, $rid_col, $rid_sproc, $json)
     {
         $headers = $this->getAuthHeaders('POST', 'sprocs', $rid_sproc);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs/" . $rid_sproc, "POST", $headers, $json);
     }
 
@@ -791,7 +789,7 @@ class CosmosDb
     public function createStoredProcedure($rid_id, $rid_col, $json)
     {
         $headers = $this->getAuthHeaders('POST', 'sprocs', $rid_col);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs", "POST", $headers, $json);
     }
 
@@ -809,7 +807,7 @@ class CosmosDb
     public function replaceStoredProcedure($rid_id, $rid_col, $rid_sproc, $json)
     {
         $headers = $this->getAuthHeaders('PUT', 'sprocs', $rid_sproc);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs/" . $rid_sproc, "PUT", $headers, $json);
     }
 
@@ -826,7 +824,7 @@ class CosmosDb
     public function deleteStoredProcedure($rid_id, $rid_col, $rid_sproc)
     {
         $headers = $this->getAuthHeaders('DELETE', 'sprocs', $rid_sproc);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs/" . $rid_sproc, "DELETE", $headers);
     }
 
@@ -842,7 +840,7 @@ class CosmosDb
     public function listUserDefinedFunctions($rid_id, $rid_col)
     {
         $headers = $this->getAuthHeaders('GET', 'udfs', $rid_col);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/udfs", "GET", $headers);
     }
 
@@ -859,7 +857,7 @@ class CosmosDb
     public function createUserDefinedFunction($rid_id, $rid_col, $json)
     {
         $headers = $this->getAuthHeaders('POST', 'udfs', $rid_col);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/udfs", "POST", $headers, $json);
     }
 
@@ -877,7 +875,7 @@ class CosmosDb
     public function replaceUserDefinedFunction($rid_id, $rid_col, $rid_udf, $json)
     {
         $headers = $this->getAuthHeaders('PUT', 'udfs', $rid_udf);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/udfs/" . $rid_udf, "PUT", $headers, $json);
     }
 
@@ -894,7 +892,7 @@ class CosmosDb
     public function deleteUserDefinedFunction($rid_id, $rid_col, $rid_udf)
     {
         $headers = $this->getAuthHeaders('DELETE', 'udfs', $rid_udf);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/udfs/" . $rid_udf, "DELETE", $headers);
     }
 
@@ -910,7 +908,7 @@ class CosmosDb
     public function listTriggers($rid_id, $rid_col)
     {
         $headers = $this->getAuthHeaders('GET', 'triggers', $rid_col);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/triggers", "GET", $headers);
     }
 
@@ -927,7 +925,7 @@ class CosmosDb
     public function createTrigger($rid_id, $rid_col, $json)
     {
         $headers = $this->getAuthHeaders('POST', 'triggers', $rid_col);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/triggers", "POST", $headers, $json);
     }
 
@@ -945,7 +943,7 @@ class CosmosDb
     public function replaceTrigger($rid_id, $rid_col, $rid_trigger, $json)
     {
         $headers = $this->getAuthHeaders('PUT', 'triggers', $rid_trigger);
-        $headers[] = 'Content-Length:' . strlen($json);
+        $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/triggers/" . $rid_trigger, "PUT", $headers, $json);
     }
 
@@ -962,7 +960,7 @@ class CosmosDb
     public function deleteTrigger($rid_id, $rid_col, $rid_trigger)
     {
         $headers = $this->getAuthHeaders('DELETE', 'triggers', $rid_trigger);
-        $headers[] = 'Content-Length:0';
+        $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/triggers/" . $rid_trigger, "DELETE", $headers);
     }
 
