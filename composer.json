@@ -1,7 +1,7 @@
 {
   "name"       : "jupitern/cosmosdb",
-  "description": "azure cosmosdb for PHP",
-  "keywords"   : ["azure cosmosdb", "cosmosdb", "documentdb"],
+  "description": "PHP wrapper for Azure Cosmos DB (formerly known as azure documentdb) using SQL rest api",
+  "keywords"   : ["azure cosmosdb", "cosmosdb", "azure documentdb", "documentdb", "cosmosdb rest", "cosmosdb sql api rest"],
   "homepage"   : "https://github.com/jupitern/cosmosdb",
   "license"    : "MIT",
   "authors"    : [
