@@ -85,7 +85,7 @@ class QueryBuilder
      */
     public function join($join)
     {
-        $this->join = $join;
+        $this->join .= " {$join} ";
         return $this;
     }
 
@@ -96,7 +96,9 @@ class QueryBuilder
      */
     public function where($where)
     {
-        $this->where = $where;
+        if (empty($where)) return $this;
+        $this->where .= !empty($this->where) ? " and {$where} " : "{$where}";
+
         return $this;
     }
 
@@ -142,7 +144,7 @@ class QueryBuilder
         $this->response = null;
         $this->multipleResults = true;
 
-        $limit = $this->limit != null ? "top ".(int)$this->limit : "";
+        $limit = $this->limit != null ? "top " . (int)$this->limit : "";
         $fields = !empty($this->fields) ? $this->fields : '*';
         $where = $this->where != "" ? "where {$this->where}" : "";
         $order = $this->order != "" ? "order by {$this->order}" : "";
