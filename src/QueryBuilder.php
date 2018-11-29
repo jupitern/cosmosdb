@@ -287,15 +287,16 @@ class QueryBuilder
     }
 
     /**
+     * @param $arrayKey
      * @return array|mixed
      */
-    public function toArray()
+    public function toArray($arrayKey = null)
     {
         $res = json_decode($this->response);
         $docs = $res->Documents ?? [];
 
         if ($this->multipleResults) {
-            return $docs;
+            return $arrayKey != null ? array_combine(array_column($docs, $arrayKey), $docs) : $docs;
         }
 
         return isset($docs[0]) ? $docs[0] : null;
