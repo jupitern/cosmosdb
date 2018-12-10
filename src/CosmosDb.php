@@ -453,11 +453,13 @@ class CosmosDb
      * @param string $rid_id Resource ID
      * @param string $rid_col Resource Collection ID
      * @param string $json JSON request
+     * @param array $headers Optional headers to send along with the request
      * @return string JSON response
      */
-    public function createDocument($rid_id, $rid_col, $json)
+    public function createDocument($rid_id, $rid_col, $json, array $headers = [])
     {
-        $headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
+        $authHeaders = $this->getAuthHeaders('POST', 'docs', $rid_col);
+        $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $json);
     }
@@ -471,11 +473,13 @@ class CosmosDb
      * @param string $rid_col Resource Collection ID
      * @param string $rid_doc Resource Doc ID
      * @param string $json JSON request
+     * @param array $headers Optional headers to send along with the request
      * @return string JSON response
      */
-    public function replaceDocument($rid_id, $rid_col, $rid_doc, $json)
+    public function replaceDocument($rid_id, $rid_col, $rid_doc, $json, array $headers = [])
     {
         $headers = $this->getAuthHeaders('PUT', 'docs', $rid_doc);
+	    $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc, "PUT", $headers, $json);
     }
@@ -488,11 +492,13 @@ class CosmosDb
      * @param string $rid_id Resource ID
      * @param string $rid_col Resource Collection ID
      * @param string $rid_doc Resource Doc ID
+     * @param array $headers Optional headers to send along with the request
      * @return string JSON response
      */
-    public function deleteDocument($rid_id, $rid_col, $rid_doc)
+    public function deleteDocument($rid_id, $rid_col, $rid_doc, array $headers = [])
     {
         $headers = $this->getAuthHeaders('DELETE', 'docs', $rid_doc);
+	    $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc, "DELETE", $headers);
     }

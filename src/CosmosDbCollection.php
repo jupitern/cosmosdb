@@ -74,11 +74,12 @@ class CosmosDbCollection
      *
      * @access public
      * @param string $json JSON formatted document
+     * @param array $headers Optional headers to send along with the request
      * @return string JSON strings
      */
-    public function createDocument($json)
+    public function createDocument($json, array $headers = [])
     {
-        return $this->document_db->createDocument($this->rid_db, $this->rid_col, $json);
+        return $this->document_db->createDocument($this->rid_db, $this->rid_col, $json, $headers);
     }
 
     /**
@@ -87,11 +88,12 @@ class CosmosDbCollection
      * @access public
      * @param  string $rid document ResourceID (_rid)
      * @param string $json JSON formatted document
+     * @param array $headers Optional headers to send along with the request
      * @return string JSON strings
      */
-    public function replaceDocument($rid, $json)
+    public function replaceDocument($rid, $json, array $headers = [])
     {
-        return $this->document_db->replaceDocument($this->rid_db, $this->rid_col, $rid, $json);
+        return $this->document_db->replaceDocument($this->rid_db, $this->rid_col, $rid, $json, $headers);
     }
 
     /**
@@ -99,11 +101,12 @@ class CosmosDbCollection
      *
      * @access public
      * @param  string $rid document ResourceID (_rid)
+     * @param array $headers Optional headers to send along with the request
      * @return string JSON strings
      */
-    public function deleteDocument($rid)
+    public function deleteDocument($rid, array $headers = [])
     {
-        return $this->document_db->deleteDocument($this->rid_db, $this->rid_col, $rid);
+        return $this->document_db->deleteDocument($this->rid_db, $this->rid_col, $rid, $headers);
     }
 
     /*

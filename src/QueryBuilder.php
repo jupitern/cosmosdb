@@ -29,6 +29,7 @@ class QueryBuilder
     private $where = "";
     private $order = null;
     private $limit = null;
+    private $triggers = [];
     private $params = [];
 
     private $response = null;
@@ -211,9 +212,9 @@ class QueryBuilder
         }
 
         $col = $this->connection->selectCollection($this->collection);
-        $result = $rid ?
-            $col->replaceDocument($rid, $document) :
-            $col->createDocument($document);
+	    $result = $rid ?
+		    $col->replaceDocument($rid, $document, $this->triggersAsHeaders("replace")) :
+		    $col->createDocument($document, $this->triggersAsHeaders("create"));
         $resultObj = json_decode($result);
 
         if (isset($resultObj->code) && isset($resultObj->message)) {
@@ -221,6 +222,47 @@ class QueryBuilder
         }
 
         return $resultObj->_rid ?? null;
+    }
+
+	public function addTrigger(string $operation, string $type, string $id): self
+	{
+		$operation = \strtolower($operation);
+		if (!\in_array($operation, ["all", "create", "delete", "replace"]))
+			throw new \Exception("Trigger: Invalid operation \"{$operation}\"");
+
+		$type = \strtolower($type);
+		if (!\in_array($type, ["post", "pre"]))
+			throw new \Exception("Trigger: Invalid type \"{$type}\"");
+
+		if (!isset($this->triggers[$operation][$type]))
+			$this->triggers[$operation][$type] = [];
+
+		$this->triggers[$operation][$type][] = $id;
+		return $this;
+	}
+
+    protected function triggersAsHeaders(string $operation): array
+    {
+	    $headers = [];
+
+	    // Add headers for the current operation type at $operation (create|detete!replace)
+	    if (isset($this->triggers[$operation])) {
+		    foreach ($this->triggers[$operation] as $name => $ids) {
+			    $ids = \is_array($ids) ? $ids : [$ids];
+			    $headers["x-ms-documentdb-{$name}-trigger-include"] = \implode(",", $ids);
+		    }
+	    }
+
+	    // Add headers for the special "all" operations type that should always run
+	    if (isset($this->triggers["all"])) {
+		    foreach ($this->triggers["all"] as $name => $ids) {
+		    	$headerKey = "x-ms-documentdb-{$name}-trigger-include";
+			    $ids = \implode(",", \is_array($ids) ? $ids : [$ids]);
+			    $headers[$headerKey] = isset($headers[$headerKey]) ? $headers[$headerKey] .= "," . $ids : $headers[$headerKey] = $ids;
+		    }
+	    }
+
+		return $headers;
     }
 
     /* DELETE */
@@ -235,7 +277,7 @@ class QueryBuilder
 
         if ($doc) {
             $col = $this->connection->selectCollection($this->collection);
-            $this->response = $col->deleteDocument($doc->_rid);
+            $this->response = $col->deleteDocument($doc->_rid, $this->triggersAsHeaders("delete"));
         }
 
         return $this;
@@ -252,7 +294,7 @@ class QueryBuilder
 
         $response = [];
         foreach ((array)$this->findAll()->toObject() as $doc) {
-            $response[] = $col->deleteDocument($doc->_rid);
+            $response[] = $col->deleteDocument($doc->_rid, $this->triggersAsHeaders("delete"));
         }
 
         $this->response = $response;
