@@ -24,6 +24,7 @@ class QueryBuilder
     /** @var \Jupitern\CosmosDb\CosmosDbDatabase $connection */
     private $connection = null;
     private $collection = "";
+    private $partitionKey = null;
     private $fields = "";
     private $join = "";
     private $where = "";
@@ -196,25 +197,34 @@ class QueryBuilder
 
 
     /**
+     * @param $fieldName
+     * @return $this
+     */
+    public function setPartitionKey($fieldName)
+    {
+        $this->partitionKey = $fieldName;
+
+        return $this;
+    }
+
+
+    /**
      * @param $document
      * @return null
      * @throws \Exception
      */
     public function save($document)
     {
-        $rid = null;
+        $document = (object)$document;
 
-        if (is_array($document) || is_object($document)) {
-            if (is_object($document) && isset($document->_rid)) $rid = $document->_rid;
-            elseif (is_array($document) && array_key_exists('_rid', $document)) $rid = $document['_rid'];
-
-            $document = json_encode($document);
-        }
+        $rid = is_object($document) && isset($document->_rid) ? $document->_rid : null;
+        $partitionValue = $this->partitionKey != null ? $document->{$this->partitionKey} : null;
+        $document = json_encode($document);
 
         $col = $this->connection->selectCollection($this->collection);
 	    $result = $rid ?
-		    $col->replaceDocument($rid, $document, $this->triggersAsHeaders("replace")) :
-		    $col->createDocument($document, $this->triggersAsHeaders("create"));
+		    $col->replaceDocument($rid, $document, $partitionValue, $this->triggersAsHeaders("replace")) :
+		    $col->createDocument($document, $partitionValue, $this->triggersAsHeaders("create"));
         $resultObj = json_decode($result);
 
         if (isset($resultObj->code) && isset($resultObj->message)) {
@@ -276,8 +286,9 @@ class QueryBuilder
         $doc = $this->find()->toObject();
 
         if ($doc) {
+            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
             $col = $this->connection->selectCollection($this->collection);
-            $this->response = $col->deleteDocument($doc->_rid, $this->triggersAsHeaders("delete"));
+            $this->response = $col->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
         }
 
         return $this;
@@ -294,7 +305,8 @@ class QueryBuilder
 
         $response = [];
         foreach ((array)$this->findAll()->toObject() as $doc) {
-            $response[] = $col->deleteDocument($doc->_rid, $this->triggersAsHeaders("delete"));
+            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
+            $response[] = $col->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
         }
 
         $this->response = $response;
