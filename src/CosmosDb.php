@@ -185,8 +185,10 @@ class CosmosDb
         $headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
         $headers['Content-Length'] = strlen($query);
         $headers['Content-Type'] = 'application/query+json';
-        $headers['x-ms-max-item-count'] = -1;
-        $headers['x-ms-documentdb-isquery'] = True;
+        $headers['x-ms-max-item-count'] = -1;	    
+	$headers['x-ms-documentdb-isquery'] = 'True';
+        $headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
+	
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);
     }
 
