@@ -74,12 +74,13 @@ class CosmosDbCollection
      *
      * @access public
      * @param string $json JSON formatted document
+     * @param string $partitionKey
      * @param array $headers Optional headers to send along with the request
      * @return string JSON strings
      */
-    public function createDocument($json, array $headers = [])
+    public function createDocument($json, $partitionKey = null, array $headers = [])
     {
-        return $this->document_db->createDocument($this->rid_db, $this->rid_col, $json, $headers);
+        return $this->document_db->createDocument($this->rid_db, $this->rid_col, $json, $partitionKey, $headers);
     }
 
     /**
@@ -88,12 +89,13 @@ class CosmosDbCollection
      * @access public
      * @param  string $rid document ResourceID (_rid)
      * @param string $json JSON formatted document
+     * @param string $partitionKey
      * @param array $headers Optional headers to send along with the request
      * @return string JSON strings
      */
-    public function replaceDocument($rid, $json, array $headers = [])
+    public function replaceDocument($rid, $json, $partitionKey = null, array $headers = [])
     {
-        return $this->document_db->replaceDocument($this->rid_db, $this->rid_col, $rid, $json, $headers);
+        return $this->document_db->replaceDocument($this->rid_db, $this->rid_col, $rid, $json, $partitionKey, $headers);
     }
 
     /**
@@ -101,12 +103,13 @@ class CosmosDbCollection
      *
      * @access public
      * @param  string $rid document ResourceID (_rid)
+     * @param string $partitionKey
      * @param array $headers Optional headers to send along with the request
      * @return string JSON strings
      */
-    public function deleteDocument($rid, array $headers = [])
+    public function deleteDocument($rid, $partitionKey = null, array $headers = [])
     {
-        return $this->document_db->deleteDocument($this->rid_db, $this->rid_col, $rid, $headers);
+        return $this->document_db->deleteDocument($this->rid_db, $this->rid_col, $rid, $partitionKey, $headers);
     }
 
     /*
