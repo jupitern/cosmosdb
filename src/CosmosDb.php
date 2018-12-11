@@ -478,7 +478,7 @@ class CosmosDb
      */
     public function replaceDocument($rid_id, $rid_col, $rid_doc, $json, array $headers = [])
     {
-        $headers = $this->getAuthHeaders('PUT', 'docs', $rid_doc);
+	    $authHeaders = $this->getAuthHeaders('PUT', 'docs', $rid_doc);
 	    $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc, "PUT", $headers, $json);
@@ -497,7 +497,7 @@ class CosmosDb
      */
     public function deleteDocument($rid_id, $rid_col, $rid_doc, array $headers = [])
     {
-        $headers = $this->getAuthHeaders('DELETE', 'docs', $rid_doc);
+	    $authHeaders = $this->getAuthHeaders('DELETE', 'docs', $rid_doc);
 	    $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = '0';
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc, "DELETE", $headers);
