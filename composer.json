@@ -4,16 +4,6 @@
   "keywords"   : ["azure cosmosdb", "cosmosdb", "azure documentdb", "documentdb", "cosmosdb rest", "cosmosdb sql api rest"],
   "homepage"   : "https://github.com/jupitern/cosmosdb",
   "license"    : "MIT",
-  "authors"    : [
-    {
-      "name"    : "Nuno Chaves",
-      "email"   : "nunochaves@sapo.pt",
-      "role"    : "Developer"
-    },
-    {
-      
-    }
-  ],
   "support": {
     "source": "https://github.com/jupitern/cosmosdb",
     "issues": "https://github.com/jupitern/cosmosdb/issues"
@@ -25,11 +15,6 @@
   "autoload": {
     "psr-4": {
       "Jupitern\\CosmosDb\\": "src/"
-    }
-  },
-  "autoload-dev": {
-    "psr-4": {
-
     }
   }
 }

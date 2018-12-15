@@ -55,9 +55,11 @@ class CosmosDbCollection
      * query
      * @access public
      * @param string $query Query
+     * @param array $params
+     * @param boolean $isCrossPartition used for cross partition query
      * @return string JSON strings
      */
-    public function query($query, $params = [])
+    public function query($query, $params = [], $isCrossPartition = false)
     {
         $paramsJson = [];
         foreach ($params as $key => $val) {
@@ -66,7 +68,7 @@ class CosmosDbCollection
 
         $query = '{"query": "' . str_replace('"', '\\"', $query) . '", "parameters": [' . implode(',', $paramsJson) . ']}';
 
-        return $this->document_db->query($this->rid_db, $this->rid_col, $query);
+        return $this->document_db->query($this->rid_db, $this->rid_col, $query, $isCrossPartition);
     }
 
     /**

@@ -118,12 +118,11 @@ class CosmosDb
         $options = [
             'headers' => $headers,
             'body' => $body,
-//            'partitionKey' => "user",
         ];
 
         $response = $client->request($method, $this->host . $path, array_merge(
             $options,
-            $this->httpClientOptions
+            (array)$this->httpClientOptions
         ));
 
         return $response->getBody()->getContents();
@@ -178,17 +177,20 @@ class CosmosDb
      * @param string $rid_id Resource ID
      * @param string $rid_col Resource Collection ID
      * @param string $query Query
+     * @param boolean $isCrossPartition used for cross partition query
      * @return string JSON response
      */
-    public function query($rid_id, $rid_col, $query)
+    public function query($rid_id, $rid_col, $query, $isCrossPartition = false)
     {
         $headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
         $headers['Content-Length'] = strlen($query);
         $headers['Content-Type'] = 'application/query+json';
-        $headers['x-ms-max-item-count'] = -1;	    
-	    $headers['x-ms-documentdb-isquery'] = 'True';
-        $headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
-	
+        $headers['x-ms-max-item-count'] = -1;
+        $headers['x-ms-documentdb-isquery'] = 'True';
+        if ($isCrossPartition) {
+            $headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
+        }
+
         return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);
     }
 
@@ -461,7 +463,6 @@ class CosmosDb
      */
     public function createDocument($rid_id, $rid_col, $json, $partitionKey = null, array $headers = [])
     {
-        addLog('error', $partitionKey);
         $authHeaders = $this->getAuthHeaders('POST', 'docs', $rid_col);
         $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = strlen($json);
@@ -487,8 +488,8 @@ class CosmosDb
      */
     public function replaceDocument($rid_id, $rid_col, $rid_doc, $json, $partitionKey = null, array $headers = [])
     {
-	    $authHeaders = $this->getAuthHeaders('PUT', 'docs', $rid_doc);
-	    $headers = \array_merge($headers, $authHeaders);
+        $authHeaders = $this->getAuthHeaders('PUT', 'docs', $rid_doc);
+        $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = strlen($json);
         if ($partitionKey !== null) {
             $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionKey.'"]';
@@ -511,8 +512,8 @@ class CosmosDb
      */
     public function deleteDocument($rid_id, $rid_col, $rid_doc, $partitionKey = null, array $headers = [])
     {
-	    $authHeaders = $this->getAuthHeaders('DELETE', 'docs', $rid_doc);
-	    $headers = \array_merge($headers, $authHeaders);
+        $authHeaders = $this->getAuthHeaders('DELETE', 'docs', $rid_doc);
+        $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = '0';
         if ($partitionKey !== null) {
             $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionKey.'"]';
