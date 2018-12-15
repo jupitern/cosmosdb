@@ -5,13 +5,10 @@ ini_set("display_errors", 1);
 require __DIR__ .'/../vendor/autoload.php';
 
 
-$conn = new \Jupitern\CosmosDb\CosmosDb(
-    'https://yeapp-cosmosdb.documents.azure.com:443/',
-    'CV3Hf1X2LASoenajh9QCEddyAPRgshSCGj8qfScmles4KHMhwsy4hAg36lHugVXmIxsh3ZZUmIS9hbC0xfN6Dw=='
-);
-
+$conn = new \Jupitern\CosmosDb\CosmosDb('host', 'pk');
 $db = $conn->selectDB('yeapp-staging');
 $collection = $db->selectCollection('Users');
+
 
 $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setDatabase($db)
@@ -28,7 +25,7 @@ $users = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setDatabase($db)
     ->setCollection($collection)
     ->select("c.id, c.name, c.age")        // always use "c" as collection name
-    ->where("IS_DEFINED(c.age) and c.age = 30 and c.collectiontype = 'user'")
+    ->where("c.age = 30 and c.collectiontype = 'user'")
     ->order("c.name asc")
     ->limit(10)
     ->findAll() // pass boolean to indicate if query is cross partition
@@ -45,7 +42,7 @@ $users = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setDatabase($db)
     ->setCollection($collection)
     ->select("c.id, c.name, c.age")        // always use "c" as collection name
-    ->where("IS_DEFINED(c.age) and c.age = 30")
+    ->where("c.age = 30")
     ->order("c.age asc")
     ->limit(10)
     ->findAll(true) // pass boolean to indicate if query is cross partition
