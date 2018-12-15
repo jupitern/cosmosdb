@@ -6,10 +6,7 @@ require __DIR__ .'/../vendor/autoload.php';
 
 echo "STEP: conn".PHP_EOL;
 
-$conn = new \Jupitern\CosmosDb\CosmosDb(
-    'https://yeapp-cosmosdb.documents.azure.com:443/',
-    'CV3Hf1X2LASoenajh9QCEddyAPRgshSCGj8qfScmles4KHMhwsy4hAg36lHugVXmIxsh3ZZUmIS9hbC0xfN6Dw=='
-);
+$conn = new \Jupitern\CosmosDb\CosmosDb('host', 'pk');
 
 echo "STEP: select db".PHP_EOL;
 $db = $conn->selectDB('yeapp-staging');
