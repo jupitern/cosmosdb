@@ -172,9 +172,10 @@ class QueryBuilder
 
 
     /**
+     * @param boolean $isCrossPartition
      * @return $this
      */
-    public function find()
+    public function find($isCrossPartition = false)
     {
         $this->response = null;
         $this->multipleResults = false;
@@ -185,7 +186,7 @@ class QueryBuilder
 
         $query = "SELECT top 1 {$fields} FROM {$this->from} {$this->join} {$where} {$order}";
 
-        $this->response = $this->collection->query($query, $this->params, $this->partitionKey);
+        $this->response = $this->collection->query($query, $this->params, $isCrossPartition);
 
         return $this;
     }
@@ -243,6 +244,48 @@ class QueryBuilder
         return $resultObj->_rid ?? null;
     }
 
+    /* DELETE */
+
+    /**
+     * @param boolean $isCrossPartition
+     * @return boolean
+     */
+    public function delete($isCrossPartition = false)
+    {
+        $this->response = null;
+        $doc = $this->find($isCrossPartition)->toObject();
+
+        if ($doc) {
+            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
+            $this->response = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+
+            return true;
+        }
+
+        return false;
+    }
+
+
+    /**
+     * @param boolean $isCrossPartition
+     * @return boolean
+     */
+    public function deleteAll($isCrossPartition = false)
+    {
+        $this->response = null;
+
+        $response = [];
+        foreach ((array)$this->findAll($isCrossPartition)->toObject() as $doc) {
+            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
+            $response[] = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+        }
+
+        $this->response = $response;
+        return true;
+    }
+
+
+    /* triggers */
 
     /**
      * @param string $operation
@@ -277,7 +320,7 @@ class QueryBuilder
     {
         $headers = [];
 
-        // Add headers for the current operation type at $operation (create|detete!replace)
+        // Add headers for the current operation type at $operation (create|delete!replace)
         if (isset($this->triggers[$operation])) {
             foreach ($this->triggers[$operation] as $name => $ids) {
                 $ids = \is_array($ids) ? $ids : [$ids];
@@ -295,44 +338,6 @@ class QueryBuilder
         }
 
         return $headers;
-    }
-
-    /* DELETE */
-
-    /**
-     * @return boolean
-     */
-    public function delete()
-    {
-        $this->response = null;
-        $doc = $this->find()->toObject();
-
-        if ($doc) {
-            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
-            $this->response = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
-
-            return true;
-        }
-
-        return false;
-    }
-
-
-    /**
-     * @return boolean
-     */
-    public function deleteAll()
-    {
-        $this->response = null;
-
-        $response = [];
-        foreach ((array)$this->findAll()->toObject() as $doc) {
-            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
-            $response[] = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
-        }
-
-        $this->response = $response;
-        return true;
     }
 
 

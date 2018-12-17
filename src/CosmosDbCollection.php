@@ -63,7 +63,9 @@ class CosmosDbCollection
     {
         $paramsJson = [];
         foreach ($params as $key => $val) {
-            $paramsJson[] = '{"name": "' . str_replace('"', '\\"', $key) . '", "value": "' . str_replace('"', '\\"', $val) . '"}';
+            $val = is_int($val) || is_float($val) ? $val : '"'. str_replace('"', '\\"', $val) .'"';
+
+            $paramsJson[] = '{"name": "' . str_replace('"', '\\"', $key) . '", "value": '.$val.'}';
         }
 
         $query = '{"query": "' . str_replace('"', '\\"', $query) . '", "parameters": [' . implode(',', $paramsJson) . ']}';
