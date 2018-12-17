@@ -4,22 +4,21 @@ error_reporting(E_ALL);
 ini_set("display_errors", 1);
 require __DIR__ .'/../vendor/autoload.php';
 
+// consider a collection called "Users" with a partition key "country"
 
-$conn = new \Jupitern\CosmosDb\CosmosDb(
-    'https://yeapp-cosmosdb.documents.azure.com:443/',
-    'o74jDAirTdPTvmE7ID0Wq7OrNLDCSwvj6FqHgvsuugqapRKhVvfWxpUUIgK2gh7eCx8BAgTgo3M5tuSf26BX9A=='
-);
-$db = $conn->selectDB('yeapp-staging');
+$conn = new \Jupitern\CosmosDb\CosmosDb('host', 'pk');
+$db = $conn->selectDB('dbname');
 $collection = $db->selectCollection('Users');
+
 
 $users = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setDatabase($db)
     ->setCollection($collection)
-    ->select("c.id, c.name, c.age")        // always use "c" as collection name
-    ->where("c.age = 30 and c.collectiontype = 'user'")
+    ->select("c.id, c.name, c.age")
+    ->where("c.age = 30 and c.country = 'Portugal'")
     ->order("c.name asc")
     ->limit(10)
-    ->findAll() // pass boolean to indicate if query is cross partition
+    ->findAll() // pass true to indicate if query is cross partition
     ->toObject();
 
 var_dump($users);
@@ -29,26 +28,26 @@ $users = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setDatabase($db)
     ->setCollection($collection)
     ->select("Users.id, Users.name, Users.age")
-    ->from("Users")
-    ->where("Users.age = 30 and Users.collectiontype = 'user'")
+    ->from("Users") // rename collection name from default "c" to "Users"
+    ->where("Users.age = 30 and Users.country = 'Portugal'")
     ->order("Users.name asc")
     ->limit(10)
-    ->findAll() // pass boolean to indicate if query is cross partition
+    ->findAll() // pass true to indicate if query is cross partition
     ->toObject();
 
 var_dump($users);
 
 
-echo "STEP: multi partition query".PHP_EOL;
+echo "STEP: cross partition query".PHP_EOL;
 
 $users = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setDatabase($db)
     ->setCollection($collection)
     ->select("c.id, c.name, c.age")        // always use "c" as collection name
     ->where("c.age = 30")
-//    ->order("c.age asc")
-//    ->limit(10)
-    ->findAll(true) // pass boolean to indicate if query is cross partition
+//    ->order("c.age asc")                  // not supported in cross partition query
+//    ->limit(10)                           // not supported in cross partition query
+    ->findAll(true) // pass true to indicate if query is cross partition
     ->toObject();
 
 var_dump($users);
