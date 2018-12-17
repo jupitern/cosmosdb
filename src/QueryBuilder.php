@@ -26,6 +26,7 @@ class QueryBuilder
     private $collection = "";
     private $partitionKey = null;
     private $fields = "";
+    private $from = "c";
     private $join = "";
     private $where = "";
     private $order = null;
@@ -77,6 +78,16 @@ class QueryBuilder
     public function select($fields)
     {
         $this->fields = $fields;
+        return $this;
+    }
+
+    /**
+     * @param $from
+     * @return $this
+     */
+    public function from($from)
+    {
+        $this->from = $from;
         return $this;
     }
 
@@ -152,7 +163,7 @@ class QueryBuilder
         $where = $this->where != "" ? "where {$this->where}" : "";
         $order = $this->order != "" ? "order by {$this->order}" : "";
 
-        $query = "SELECT {$limit} {$fields} FROM c {$this->join} {$where} {$order}";
+        $query = "SELECT {$limit} {$fields} FROM {$this->from} {$this->join} {$where} {$order}";
 
         $this->response = $this->collection->query($query, $this->params, $isCrossPartition);
 
@@ -172,7 +183,7 @@ class QueryBuilder
         $where = $this->where != "" ? "where {$this->where}" : "";
         $order = $this->order != "" ? "order by {$this->order}" : "";
 
-        $query = "SELECT top 1 {$fields} FROM c {$this->join} {$where} {$order}";
+        $query = "SELECT top 1 {$fields} FROM {$this->from} {$this->join} {$where} {$order}";
 
         $this->response = $this->collection->query($query, $this->params, $this->partitionKey);
 
