@@ -1,47 +1,8 @@
-# cosmosdb
-PHP wrapper for Azure Cosmos DB
+<?php
 
-## Installation
-
-Include jupitern/table in your project, by adding it to your composer.json file.
-```php
-{
-    "require": {
-        "jupitern/cosmosdb": "2.*"
-    }
-}
-```
-
-## Changelog
-
-### v2.0.0
-support for cross partition queries
-
-selectCollection method removed from all methods for performance improvements
-
-### v1.4.4
-replaced pear package http_request2 by guzzle
-
-added method to provide guzzle configuration
-
-### v1.3.0
-added support for parameterized queries
-
-
-## Note
-
-this package adds functionalities to the package bellow so all functionalities provided in base package are also available
-
-https://github.com/cocteau666/AzureDocumentDB-PHP
-
-## Limitations
-
-in cross partition queries order by or top are not supported at this moment
-
-
-## Usage
-
-```php
+error_reporting(E_ALL);
+ini_set("display_errors", 1);
+require __DIR__ .'/../vendor/autoload.php';
 
 // consider a existing collection called "Users" with a partition key "country"
 
@@ -112,9 +73,9 @@ echo "get rows as array of objects with collection alias and cross partition que
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setDatabase($db)
     ->setCollection($collection)
-    ->select("TestColl.id, TestColl.name")
-    ->from("TestColl")
-    ->where("TestColl.age > 30")
+    ->select("Users.id, Users.name")
+    ->from("Users")
+    ->where("Users.age > 30")
     ->findAll(true) // pass true if is cross partition query
     ->toArray();
 
@@ -122,7 +83,7 @@ var_dump($res);
 
 echo "delete one document:".PHP_EOL;
 
-// delete one document that match criteria (single partition)
+// delete one document that match criteria
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setDatabase($db)
     ->setCollection($collection)
@@ -134,7 +95,7 @@ var_dump($res);
 
 echo "delete all documents:".PHP_EOL;
 
-// delete all documents that match criteria (cross partition)
+// delete all documents that match criteria
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setDatabase($db)
     ->setPartitionKey('country')
@@ -143,5 +104,3 @@ $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->deleteAll(true);
 
 var_dump($res);
-
-```

@@ -21,11 +21,12 @@ namespace Jupitern\CosmosDb;
 class QueryBuilder
 {
 
-    /** @var \Jupitern\CosmosDb\CosmosDbDatabase $connection */
-    private $connection = null;
+    /** @var \Jupitern\CosmosDb\CosmosDbDatabase $db */
+    private $db = null;
     private $collection = "";
     private $partitionKey = null;
     private $fields = "";
+    private $from = "c";
     private $join = "";
     private $where = "";
     private $order = null;
@@ -49,21 +50,21 @@ class QueryBuilder
 
 
     /**
-     * @param CosmosDbDatabase $connection
+     * @param CosmosDbDatabase $db
      * @return $this
      */
-    public function setConnection(CosmosDbDatabase $connection)
+    public function setDatabase(CosmosDbDatabase $db)
     {
-        $this->connection = $connection;
+        $this->db = $db;
         return $this;
     }
 
 
     /**
-     * @param $collection
+     * @param CosmosDbCollection $collection
      * @return $this
      */
-    public function collection($collection)
+    public function setCollection(CosmosDbCollection $collection)
     {
         $this->collection = $collection;
         return $this;
@@ -77,6 +78,16 @@ class QueryBuilder
     public function select($fields)
     {
         $this->fields = $fields;
+        return $this;
+    }
+
+    /**
+     * @param $from
+     * @return $this
+     */
+    public function from($from)
+    {
+        $this->from = $from;
         return $this;
     }
 
@@ -128,20 +139,21 @@ class QueryBuilder
 
 
     /**
-     * @param $limit
+     * @param array $params
      * @return $this
      */
     public function params($params)
     {
-        $this->params = $params;
+        $this->params = (array)$params;
         return $this;
     }
 
 
     /**
+     * @param boolean $isCrossPartition
      * @return $this
      */
-    public function findAll()
+    public function findAll($isCrossPartition = false)
     {
         $this->response = null;
         $this->multipleResults = true;
@@ -151,19 +163,19 @@ class QueryBuilder
         $where = $this->where != "" ? "where {$this->where}" : "";
         $order = $this->order != "" ? "order by {$this->order}" : "";
 
-        $query = "SELECT {$limit} {$fields} FROM {$this->collection} {$this->join} {$where} {$order}";
+        $query = "SELECT {$limit} {$fields} FROM {$this->from} {$this->join} {$where} {$order}";
 
-        $col = $this->connection->selectCollection($this->collection);
-        $this->response = $col->query($query, $this->params);
+        $this->response = $this->collection->query($query, $this->params, $isCrossPartition);
 
         return $this;
     }
 
 
     /**
+     * @param boolean $isCrossPartition
      * @return $this
      */
-    public function find()
+    public function find($isCrossPartition = false)
     {
         $this->response = null;
         $this->multipleResults = false;
@@ -172,10 +184,9 @@ class QueryBuilder
         $where = $this->where != "" ? "where {$this->where}" : "";
         $order = $this->order != "" ? "order by {$this->order}" : "";
 
-        $query = "SELECT top 1 {$fields} FROM {$this->collection} {$this->join} {$where} {$order}";
+        $query = "SELECT top 1 {$fields} FROM {$this->from} {$this->join} {$where} {$order}";
 
-        $col = $this->connection->selectCollection($this->collection);
-        $this->response = $col->query($query, $this->params);
+        $this->response = $this->collection->query($query, $this->params, $isCrossPartition);
 
         return $this;
     }
@@ -210,7 +221,7 @@ class QueryBuilder
 
     /**
      * @param $document
-     * @return null
+     * @return string|null
      * @throws \Exception
      */
     public function save($document)
@@ -221,10 +232,9 @@ class QueryBuilder
         $partitionValue = $this->partitionKey != null ? $document->{$this->partitionKey} : null;
         $document = json_encode($document);
 
-        $col = $this->connection->selectCollection($this->collection);
-	    $result = $rid ?
-		    $col->replaceDocument($rid, $document, $partitionValue, $this->triggersAsHeaders("replace")) :
-		    $col->createDocument($document, $partitionValue, $this->triggersAsHeaders("create"));
+        $result = $rid ?
+            $this->collection->replaceDocument($rid, $document, $partitionValue, $this->triggersAsHeaders("replace")) :
+            $this->collection->createDocument($document, $partitionValue, $this->triggersAsHeaders("create"));
         $resultObj = json_decode($result);
 
         if (isset($resultObj->code) && isset($resultObj->message)) {
@@ -234,83 +244,100 @@ class QueryBuilder
         return $resultObj->_rid ?? null;
     }
 
-	public function addTrigger(string $operation, string $type, string $id): self
-	{
-		$operation = \strtolower($operation);
-		if (!\in_array($operation, ["all", "create", "delete", "replace"]))
-			throw new \Exception("Trigger: Invalid operation \"{$operation}\"");
-
-		$type = \strtolower($type);
-		if (!\in_array($type, ["post", "pre"]))
-			throw new \Exception("Trigger: Invalid type \"{$type}\"");
-
-		if (!isset($this->triggers[$operation][$type]))
-			$this->triggers[$operation][$type] = [];
-
-		$this->triggers[$operation][$type][] = $id;
-		return $this;
-	}
-
-    protected function triggersAsHeaders(string $operation): array
-    {
-	    $headers = [];
-
-	    // Add headers for the current operation type at $operation (create|detete!replace)
-	    if (isset($this->triggers[$operation])) {
-		    foreach ($this->triggers[$operation] as $name => $ids) {
-			    $ids = \is_array($ids) ? $ids : [$ids];
-			    $headers["x-ms-documentdb-{$name}-trigger-include"] = \implode(",", $ids);
-		    }
-	    }
-
-	    // Add headers for the special "all" operations type that should always run
-	    if (isset($this->triggers["all"])) {
-		    foreach ($this->triggers["all"] as $name => $ids) {
-		    	$headerKey = "x-ms-documentdb-{$name}-trigger-include";
-			    $ids = \implode(",", \is_array($ids) ? $ids : [$ids]);
-			    $headers[$headerKey] = isset($headers[$headerKey]) ? $headers[$headerKey] .= "," . $ids : $headers[$headerKey] = $ids;
-		    }
-	    }
-
-		return $headers;
-    }
-
     /* DELETE */
 
     /**
-     * @return $this
+     * @param boolean $isCrossPartition
+     * @return boolean
      */
-    public function delete()
+    public function delete($isCrossPartition = false)
     {
         $this->response = null;
-        $doc = $this->find()->toObject();
+        $doc = $this->find($isCrossPartition)->toObject();
 
         if ($doc) {
             $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
-            $col = $this->connection->selectCollection($this->collection);
-            $this->response = $col->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+            $this->response = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+
+            return true;
         }
 
+        return false;
+    }
+
+
+    /**
+     * @param boolean $isCrossPartition
+     * @return boolean
+     */
+    public function deleteAll($isCrossPartition = false)
+    {
+        $this->response = null;
+
+        $response = [];
+        foreach ((array)$this->findAll($isCrossPartition)->toObject() as $doc) {
+            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
+            $response[] = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+        }
+
+        $this->response = $response;
+        return true;
+    }
+
+
+    /* triggers */
+
+    /**
+     * @param string $operation
+     * @param string $type
+     * @param string $id
+     * @return QueryBuilder
+     * @throws \Exception
+     */
+    public function addTrigger(string $operation, string $type, string $id): self
+    {
+        $operation = \strtolower($operation);
+        if (!\in_array($operation, ["all", "create", "delete", "replace"]))
+            throw new \Exception("Trigger: Invalid operation \"{$operation}\"");
+
+        $type = \strtolower($type);
+        if (!\in_array($type, ["post", "pre"]))
+            throw new \Exception("Trigger: Invalid type \"{$type}\"");
+
+        if (!isset($this->triggers[$operation][$type]))
+            $this->triggers[$operation][$type] = [];
+
+        $this->triggers[$operation][$type][] = $id;
         return $this;
     }
 
 
     /**
-     * @return $this
+     * @param string $operation
+     * @return array
      */
-    public function deleteAll()
+    protected function triggersAsHeaders(string $operation): array
     {
-        $this->response = null;
-        $col = $this->connection->selectCollection($this->collection);
+        $headers = [];
 
-        $response = [];
-        foreach ((array)$this->findAll()->toObject() as $doc) {
-            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
-            $response[] = $col->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+        // Add headers for the current operation type at $operation (create|delete!replace)
+        if (isset($this->triggers[$operation])) {
+            foreach ($this->triggers[$operation] as $name => $ids) {
+                $ids = \is_array($ids) ? $ids : [$ids];
+                $headers["x-ms-documentdb-{$name}-trigger-include"] = \implode(",", $ids);
+            }
         }
 
-        $this->response = $response;
-        return $this;
+        // Add headers for the special "all" operations type that should always run
+        if (isset($this->triggers["all"])) {
+            foreach ($this->triggers["all"] as $name => $ids) {
+                $headerKey = "x-ms-documentdb-{$name}-trigger-include";
+                $ids = \implode(",", \is_array($ids) ? $ids : [$ids]);
+                $headers[$headerKey] = isset($headers[$headerKey]) ? $headers[$headerKey] .= "," . $ids : $headers[$headerKey] = $ids;
+            }
+        }
+
+        return $headers;
     }
 
 
