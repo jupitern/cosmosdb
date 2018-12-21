@@ -52,7 +52,6 @@ $collection = $db->selectCollection('collectionName');
 
 // insert a record
 $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
-    ->setDatabase($db)
     ->setCollection($collection)
     ->setPartitionKey('country')
     ->save(['id' => '1', 'name' => 'John Doe', 'age' => 22, 'country' => 'Portugal']);
@@ -61,7 +60,6 @@ echo "record inserted: $rid".PHP_EOL;
 
 // insert a record
 $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
-    ->setDatabase($db)
     ->setCollection($collection)
     ->setPartitionKey('country')
     ->save(['id' => '2', 'name' => 'Jane doe', 'age' => 35, 'country' => 'Portugal']);
@@ -70,7 +68,6 @@ echo "record inserted: $rid".PHP_EOL;
 
 // update a record
 $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
-    ->setDatabase($db)
     ->setCollection($collection)
     ->setPartitionKey('country')
     ->save(["_rid" => $rid, 'id' => '2', 'name' => 'Jane Doe Something', 'age' => 36, 'country' => 'Portugal']);
@@ -81,7 +78,6 @@ echo "get one row as array:".PHP_EOL;
 
 // get one row as array
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
-    ->setDatabase($db)
     ->setCollection($collection)
     ->select("c.id, c.name")
     ->where("c.age > @age and c.country = @country")
@@ -95,7 +91,6 @@ echo "get 5 rows as array with id as array key:".PHP_EOL;
 
 // get top 5 rows as array with id as array key
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
-    ->setDatabase($db)
     ->setCollection($collection)
     ->select("c.id, c.username")
     ->where("c.age > @age and c.country = @country")
@@ -110,7 +105,6 @@ echo "get rows as array of objects with collection alias and cross partition que
 
 // get rows as array of objects with collection alias and cross partition query
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
-    ->setDatabase($db)
     ->setCollection($collection)
     ->select("TestColl.id, TestColl.name")
     ->from("TestColl")
@@ -124,7 +118,6 @@ echo "delete one document:".PHP_EOL;
 
 // delete one document that match criteria (single partition)
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
-    ->setDatabase($db)
     ->setCollection($collection)
     ->setPartitionKey('country')
     ->where("c.age > 30 and c.country = 'Portugal'")
@@ -136,9 +129,8 @@ echo "delete all documents:".PHP_EOL;
 
 // delete all documents that match criteria (cross partition)
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
-    ->setDatabase($db)
-    ->setPartitionKey('country')
     ->setCollection($collection)
+    ->setPartitionKey('country')
     ->where("c.age > 20")
     ->deleteAll(true);
 
