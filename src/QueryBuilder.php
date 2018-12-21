@@ -22,7 +22,6 @@ class QueryBuilder
 {
 
     /** @var \Jupitern\CosmosDb\CosmosDbDatabase $db */
-    private $db = null;
     private $collection = "";
     private $partitionKey = null;
     private $fields = "";
@@ -46,17 +45,6 @@ class QueryBuilder
     public static function instance()
     {
         return new static();
-    }
-
-
-    /**
-     * @param CosmosDbDatabase $db
-     * @return $this
-     */
-    public function setDatabase(CosmosDbDatabase $db)
-    {
-        $this->db = $db;
-        return $this;
     }
 
 
@@ -244,8 +232,7 @@ class QueryBuilder
         return $resultObj->_rid ?? null;
     }
 
-    
-    /* delete */
+    /* DELETE */
 
     /**
      * @param boolean $isCrossPartition
