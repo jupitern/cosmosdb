@@ -244,7 +244,8 @@ class QueryBuilder
         return $resultObj->_rid ?? null;
     }
 
-    /* DELETE */
+    
+    /* delete */
 
     /**
      * @param boolean $isCrossPartition
@@ -253,7 +254,11 @@ class QueryBuilder
     public function delete($isCrossPartition = false)
     {
         $this->response = null;
-        $doc = $this->find($isCrossPartition)->toObject();
+
+        $select = $this->fields != "" ?
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->partitionKey}" : "");
+
+        $doc = $this->select($select)->find($isCrossPartition)->toObject();
 
         if ($doc) {
             $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
@@ -274,8 +279,11 @@ class QueryBuilder
     {
         $this->response = null;
 
+        $select = $this->fields != "" ?
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->partitionKey}" : "");
+
         $response = [];
-        foreach ((array)$this->findAll($isCrossPartition)->toObject() as $doc) {
+        foreach ((array)$this->select($select)->findAll($isCrossPartition)->toObject() as $doc) {
             $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
             $response[] = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
         }
