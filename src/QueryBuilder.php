@@ -103,6 +103,28 @@ class QueryBuilder
         return $this;
     }
 
+	public function whereStartsWith($field, $value)
+	{
+		return $this->where("STARTSWITH($field, '{$value}')");
+	}
+
+	public function whereEndsWith($field, $value)
+	{
+		return $this->where("ENDSWITH($field, '{$value}')");
+	}
+
+	public function whereContains($field, $value)
+	{
+		return $this->where("CONTAINS($field, '{$value}'");
+	}
+
+	public function whereIn($field, $values)
+	{
+		if (is_array($values))
+			$values = implode("', '", $values);
+		return $this->where("$field IN('{$values}')");
+	}
+
 
     /**
      * @param $order
