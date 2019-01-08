@@ -55,18 +55,22 @@ class CosmosDbCollection
      * query
      * @access public
      * @param string $query Query
+     * @param array $params
+     * @param boolean $isCrossPartition used for cross partition query
      * @return string JSON strings
      */
-    public function query($query, $params = [])
+    public function query($query, $params = [], $isCrossPartition = false)
     {
         $paramsJson = [];
         foreach ($params as $key => $val) {
-            $paramsJson[] = '{"name": "' . str_replace('"', '\\"', $key) . '", "value": "' . str_replace('"', '\\"', $val) . '"}';
+            $val = is_int($val) || is_float($val) ? $val : '"'. str_replace('"', '\\"', $val) .'"';
+
+            $paramsJson[] = '{"name": "' . str_replace('"', '\\"', $key) . '", "value": '.$val.'}';
         }
 
         $query = '{"query": "' . str_replace('"', '\\"', $query) . '", "parameters": [' . implode(',', $paramsJson) . ']}';
 
-        return $this->document_db->query($this->rid_db, $this->rid_col, $query);
+        return $this->document_db->query($this->rid_db, $this->rid_col, $query, $isCrossPartition);
     }
 
     /**
@@ -74,12 +78,13 @@ class CosmosDbCollection
      *
      * @access public
      * @param string $json JSON formatted document
+     * @param string $partitionKey
      * @param array $headers Optional headers to send along with the request
      * @return string JSON strings
      */
-    public function createDocument($json, array $headers = [])
+    public function createDocument($json, $partitionKey = null, array $headers = [])
     {
-        return $this->document_db->createDocument($this->rid_db, $this->rid_col, $json, $headers);
+        return $this->document_db->createDocument($this->rid_db, $this->rid_col, $json, $partitionKey, $headers);
     }
 
     /**
@@ -88,12 +93,13 @@ class CosmosDbCollection
      * @access public
      * @param  string $rid document ResourceID (_rid)
      * @param string $json JSON formatted document
+     * @param string $partitionKey
      * @param array $headers Optional headers to send along with the request
      * @return string JSON strings
      */
-    public function replaceDocument($rid, $json, array $headers = [])
+    public function replaceDocument($rid, $json, $partitionKey = null, array $headers = [])
     {
-        return $this->document_db->replaceDocument($this->rid_db, $this->rid_col, $rid, $json, $headers);
+        return $this->document_db->replaceDocument($this->rid_db, $this->rid_col, $rid, $json, $partitionKey, $headers);
     }
 
     /**
@@ -101,12 +107,13 @@ class CosmosDbCollection
      *
      * @access public
      * @param  string $rid document ResourceID (_rid)
+     * @param string $partitionKey
      * @param array $headers Optional headers to send along with the request
      * @return string JSON strings
      */
-    public function deleteDocument($rid, array $headers = [])
+    public function deleteDocument($rid, $partitionKey = null, array $headers = [])
     {
-        return $this->document_db->deleteDocument($this->rid_db, $this->rid_col, $rid, $headers);
+        return $this->document_db->deleteDocument($this->rid_db, $this->rid_col, $rid, $partitionKey, $headers);
     }
 
     /*
