@@ -228,6 +228,10 @@ class QueryBuilder
         return $this;
     }
 
+	public function getPartitionKey()
+	{
+		return $this->partitionKey;
+	}
 
     /**
      * @param $document

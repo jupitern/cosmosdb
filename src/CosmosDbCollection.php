@@ -73,6 +73,26 @@ class CosmosDbCollection
         return $this->document_db->query($this->rid_db, $this->rid_col, $query, $isCrossPartition);
     }
 
+	/**
+	 * getPkRanges
+	 *
+	 * @return mixed
+	 */
+	public function getPkRanges()
+	{
+		return $this->document_db->getPkRanges($this->rid_db, $this->rid_col);
+	}
+
+	/**
+	 * getPkFullRange
+	 *
+	 * @return mixed
+	 */
+	public function getPkFullRange()
+	{
+		return $this->document_db->getPkFullRange($this->rid_db, $this->rid_col);
+	}
+
     /**
      * createDocument
      *
