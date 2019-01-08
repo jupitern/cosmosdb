@@ -180,19 +180,71 @@ class CosmosDb
      * @param boolean $isCrossPartition used for cross partition query
      * @return string JSON response
      */
-    public function query($rid_id, $rid_col, $query, $isCrossPartition = false)
-    {
-        $headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
-        $headers['Content-Length'] = strlen($query);
-        $headers['Content-Type'] = 'application/query+json';
-        $headers['x-ms-max-item-count'] = -1;
-        $headers['x-ms-documentdb-isquery'] = 'True';
-        if ($isCrossPartition) {
-            $headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
-        }
+	public function query($rid_id, $rid_col, $query, $isCrossPartition = false)
+	{
+		$headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
+		$headers['Content-Length'] = strlen($query);
+		$headers['Content-Type'] = 'application/query+json';
+		$headers['x-ms-max-item-count'] = -1;
+		$headers['x-ms-documentdb-isquery'] = 'True';
 
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);
-    }
+		if ($isCrossPartition)
+			$headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
+
+		try {
+			$result = $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);
+		}
+		catch (\GuzzleHttp\Exception\ClientException $e) {
+			$responseError = \json_decode($e->getResponse()->getBody()->getContents());
+
+			// -- Retry the request with PK Ranges --
+			// The provided cross partition query can not be directly served by the gateway.
+			// This is a first chance (internal) exception that all newer clients will know how to
+			// handle gracefully. This exception is traced, but unless you see it bubble up as an
+			// exception (which only happens on older SDK clients), then you can safely ignore this message.
+			if ($responseError->code === "BadRequest" && $isCrossPartition) {
+				$headers["x-ms-documentdb-partitionkeyrangeid"] = $this->getPkFullRange($rid_id, $rid_col);
+				$result = $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);
+			}
+
+		}
+
+		return $result;
+
+	}
+
+	/**
+	 * getPkRanges
+	 *
+	 * @param      $rid_id
+	 * @param      $rid_col
+	 * @param bool $raw
+	 *
+	 * @return mixed|string
+	 */
+	public function getPkRanges($rid_id, $rid_col)
+	{
+		$headers = $this->getAuthHeaders('GET', 'pkranges', $rid_col);
+		$headers['Accept'] = 'application/json';
+		$headers['x-ms-max-item-count'] = -1;
+		$result = $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/pkranges", "GET", $headers);
+		return json_decode($result);
+	}
+
+	/**
+	 * getPkFullRange
+	 *
+	 * @param $rid_id
+	 * @param $rid_col
+	 *
+	 * @return string
+	 */
+	public function getPkFullRange($rid_id, $rid_col)
+	{
+		$result = $this->getPkRanges($rid_id, $rid_col);
+		$ids = \array_column($result->PartitionKeyRanges, "id");
+		return $result->_rid . "," . \implode(",", $ids);
+	}
 
     /**
      * listDatabases
