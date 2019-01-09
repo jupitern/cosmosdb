@@ -202,11 +202,12 @@ class CosmosDb
 			// This is a first chance (internal) exception that all newer clients will know how to
 			// handle gracefully. This exception is traced, but unless you see it bubble up as an
 			// exception (which only happens on older SDK clients), then you can safely ignore this message.
-			if ($responseError->code === "BadRequest" && $isCrossPartition) {
+			if ($isCrossPartition && $responseError->code === "BadRequest" && strpos($responseError->message, "cross partition query can not be directly served by the gateway") !== false) {
 				$headers["x-ms-documentdb-partitionkeyrangeid"] = $this->getPkFullRange($rid_id, $rid_col);
 				$result = $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);
+			} else {
+				throw $e;
 			}
-
 		}
 
 		return $result;
