@@ -63,11 +63,15 @@ class QueryBuilder
      * @param $fields
      * @return $this
      */
-    public function select($fields)
-    {
-        $this->fields = $fields;
-        return $this;
-    }
+	public function select($fields)
+	{
+
+		if (is_array($fields))
+			$fields = 'c["' . implode('"], c["', $fields) . '"]';
+
+		$this->fields = $fields;
+		return $this;
+	}
 
     /**
      * @param $from
