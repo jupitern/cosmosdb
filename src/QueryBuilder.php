@@ -60,21 +60,19 @@ class QueryBuilder
 
 
     /**
-     * @param $fields
+     * @param string|array $fields
      * @return $this
      */
-	public function select($fields)
-	{
-
-		if (is_array($fields))
-			$fields = 'c["' . implode('"], c["', $fields) . '"]';
-
-		$this->fields = $fields;
-		return $this;
-	}
+    public function select($fields)
+    {
+        if (is_array($fields))
+            $fields = 'c["' . implode('"], c["', $fields) . '"]';
+        $this->fields = $fields;
+        return $this;
+    }
 
     /**
-     * @param $from
+     * @param string $from
      * @return $this
      */
     public function from($from)
@@ -85,7 +83,7 @@ class QueryBuilder
 
 
     /**
-     * @param $join
+     * @param string $join
      * @return $this
      */
     public function join($join)
@@ -96,7 +94,7 @@ class QueryBuilder
 
 
     /**
-     * @param $where
+     * @param string $where
      * @return $this
      */
     public function where($where)
@@ -107,31 +105,65 @@ class QueryBuilder
         return $this;
     }
 
-	public function whereStartsWith($field, $value)
+    /**
+     * @param string $field
+     * @param string $value
+     * @return QueryBuilder
+     */
+    public function whereStartsWith($field, $value)
 	{
 		return $this->where("STARTSWITH($field, '{$value}')");
 	}
 
-	public function whereEndsWith($field, $value)
+    /**
+     * @param string $field
+     * @param string $value
+     * @return QueryBuilder
+     */
+    public function whereEndsWith($field, $value)
 	{
 		return $this->where("ENDSWITH($field, '{$value}')");
 	}
 
-	public function whereContains($field, $value)
+    /**
+     * @param string $field
+     * @param string $value
+     * @return QueryBuilder
+     */
+    public function whereContains($field, $value)
 	{
 		return $this->where("CONTAINS($field, '{$value}'");
 	}
 
-	public function whereIn($field, $values)
+    /**
+     * @param string $field
+     * @param array $values
+     * @return $this|QueryBuilder
+     */
+    public function whereIn($field, $values)
 	{
-		if (is_array($values))
-			$values = implode("', '", $values);
+	    if (!is_array($values) || empty($values)) return $this;
+		if (is_array($values)) $values = implode("', '", $values);
+
 		return $this->where("$field IN('{$values}')");
 	}
 
+    /**
+     * @param string $field
+     * @param array $values
+     * @return $this|QueryBuilder
+     */
+    public function whereNotIn($field, $values)
+    {
+        if (!is_array($values) || empty($values)) return $this;
+        if (is_array($values)) $values = implode("', '", $values);
+
+        return $this->where("$field NOT IN('{$values}')");
+    }
+
 
     /**
-     * @param $order
+     * @param string $order
      * @return $this
      */
     public function order($order)
@@ -142,12 +174,12 @@ class QueryBuilder
 
 
     /**
-     * @param $limit
+     * @param int $limit
      * @return $this
      */
     public function limit($limit)
     {
-        $this->limit = $limit;
+        $this->limit = (int)$limit;
         return $this;
     }
 
@@ -232,7 +264,10 @@ class QueryBuilder
         return $this;
     }
 
-	public function getPartitionKey()
+    /**
+     * @return null
+     */
+    public function getPartitionKey()
 	{
 		return $this->partitionKey;
 	}
