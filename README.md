@@ -3,7 +3,7 @@ PHP wrapper for Azure Cosmos DB
 
 ## Installation
 
-Include jupitern/table in your project, by adding it to your composer.json file.
+Include jupitern/cosmosdb in your project, by adding it to your composer.json file.
 ```php
 {
     "require": {
