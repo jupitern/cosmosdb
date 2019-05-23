@@ -1,9 +1,11 @@
 # cosmosdb
+
 PHP wrapper for Azure Cosmos DB
 
 ## Installation
 
 Include jupitern/cosmosdb in your project, by adding it to your composer.json file.
+
 ```php
 {
     "require": {
@@ -15,31 +17,34 @@ Include jupitern/cosmosdb in your project, by adding it to your composer.json fi
 ## Changelog
 
 ### v2.1.0
-- support for nested partition keys
+
+- added support for nested partition keys
+
 - pass a known partition value when querying as an alternative to cross-partition queries
 
 ### v2.0.0
+
 - support for cross partition queries
+
 - selectCollection method removed from all methods for performance improvements
 
 ### v1.4.4
+
 - replaced pear package http_request2 by guzzle
+
 - added method to provide guzzle configuration
 
 ### v1.3.0
-- added support for parameterized queries
 
+- added support for parameterized queries
 
 ## Note
 
-this package adds functionalities to the package bellow so all functionalities provided in base package are also available
-
-https://github.com/cocteau666/AzureDocumentDB-PHP
+This package adds additional functionalities to the [AzureDocumentDB-PHP](https://github.com/cocteau666/AzureDocumentDB-PHP) package. All other functionality exists in this package as well.
 
 ## Limitations
 
-in cross partition queries order by or top are not supported at this moment
-
+Using `order by` or `top` in cross-partition queries is currently not supported.
 
 ## Usage
 
@@ -47,7 +52,7 @@ in cross partition queries order by or top are not supported at this moment
 
 ```php
 $conn = new \Jupitern\CosmosDb\CosmosDb('hostName', 'primaryKey');
-$conn->setHttpClientOptions(['verify' => false]); // optional: set guzzle client options.
+$conn->setHttpClientOptions(['verify' => false]); # optional: set guzzle client options.
 $db = $conn->selectDB('dbName');
 $collection = $db->selectCollection('collectionName');
 ```
@@ -56,17 +61,17 @@ $collection = $db->selectCollection('collectionName');
 
 ```php
 
-// consider a existing collection called "Users" with a partition key "country"
+# consider a existing collection called "Users" with a partition key "country"
 
-// insert a record
+# insert a record
 $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setCollection($collection)
     ->setPartitionKey('country')
     ->save(['id' => '1', 'name' => 'John Doe', 'age' => 22, 'country' => 'Portugal']);
 
-// insert a record against a collection with a nested partition key
-// note: this follows the same string format as is used when creating
-// a collection with a partition key via the Azure Portal
+# insert a record against a collection with a nested partition key
+# note: this follows the same string format as is used when creating
+# a collection with a partition key via the Azure Portal
 $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setCollection($collection)
     ->setPartitionKey('/form/person/country')
@@ -76,7 +81,7 @@ $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
 ### Updating Records
 
 ```php
-// update a record
+# update a record
 $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setCollection($collection)
     ->setPartitionKey('country')
@@ -86,20 +91,20 @@ $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
 ### Querying Records
 
 ```php
-// query a document and return it as an array
+# query a document and return it as an array
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setCollection($collection)
     ->select("c.id, c.name")
     ->where("c.age > @age and c.country = @country")
     ->params(['@age' => 30, '@country' => 'Portugal'])
-    ->find(true) // pass true if is cross partition query
+    ->find(true) # pass true if is cross partition query
     ->toArray();
 
-// query a document using a known partition value,
-// and return as an array. note: setting a known
-// partition value will result in a more efficient
-// query against your database as it will not rely
-// on cross-partition querying
+# query a document using a known partition value,
+# and return as an array. note: setting a known
+# partition value will result in a more efficient
+# query against your database as it will not rely
+# on cross-partition querying
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
 ->setCollection($collection)
 ->setPartitionValue('Portugal')
@@ -109,39 +114,39 @@ $res = \Jupitern\CosmosDb\QueryBuilder::instance()
 ->find()
 ->toArray();
 
-// query the top 5 documents as an array, with the
-// document ID as the array key.
-// note: refer to limitations section
+# query the top 5 documents as an array, with the
+# document ID as the array key.
+# note: refer to limitations section
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setCollection($collection)
     ->select("c.id, c.username")
     ->where("c.age > @age and c.country = @country")
     ->params(['@age' => 10, '@country' => 'Portugal'])
     ->limit(5)
-    ->findAll() // cannot limit cross-partition queries
+    ->findAll() # cannot limit cross-partition queries
     ->toArray('id');
 
-// query a document using a collection alias and cross partition query
+# query a document using a collection alias and cross partition query
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setCollection($collection)
     ->select("TestColl.id, TestColl.name")
     ->from("TestColl")
     ->where("TestColl.age > 30")
-    ->findAll(true) // pass true if is cross partition query
+    ->findAll(true) # pass true if is cross partition query
     ->toArray();
 ```
 
 ### Deleting Records
 
 ```php
-// delete one document that matches criteria (single partition)
+# delete one document that matches criteria (single partition)
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setCollection($collection)
     ->setPartitionKey('country')
     ->where("c.age > 30 and c.country = 'Portugal'")
     ->delete();
 
-// delete all documents that match criteria (cross partition)
+# delete all documents that match criteria (cross partition)
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
     ->setCollection($collection)
     ->setPartitionKey('country')
