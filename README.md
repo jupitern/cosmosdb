@@ -44,7 +44,7 @@ This package adds additional functionalities to the [AzureDocumentDB-PHP](https:
 
 ## Limitations
 
-Using `order by` or `top` in cross-partition queries is currently not supported.
+Use of `limit()` or `order()` in cross-partition queries is currently not supported.
 
 ## Usage
 
@@ -106,13 +106,13 @@ $res = \Jupitern\CosmosDb\QueryBuilder::instance()
 # query against your database as it will not rely
 # on cross-partition querying
 $res = \Jupitern\CosmosDb\QueryBuilder::instance()
-->setCollection($collection)
-->setPartitionValue('Portugal')
-->select("c.id, c.name")
-->where("c.age > @age and c.country = @country")
-->params(['@age' => 30, '@country' => 'Portugal'])
-->find()
-->toArray();
+    ->setCollection($collection)
+    ->setPartitionValue('Portugal')
+    ->select("c.id, c.name")
+    ->where("c.age > @age and c.country = @country")
+    ->params(['@age' => 30, '@country' => 'Portugal'])
+    ->find()
+    ->toArray();
 
 # query the top 5 documents as an array, with the
 # document ID as the array key.
