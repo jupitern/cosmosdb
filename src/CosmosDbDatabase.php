@@ -47,7 +47,7 @@ class CosmosDbDatabase
      * @access public
      * @param string $col_name Collection name
      */
-    public function selectCollection($col_name)
+    public function selectCollection($col_name, $partitionKey = null)
     {
         $rid_col = false;
         $object = json_decode($this->document_db->listCollections($this->rid_db));
@@ -58,7 +58,14 @@ class CosmosDbDatabase
             }
         }
         if (!$rid_col) {
-            $object = json_decode($this->document_db->createCollection($this->rid_db, '{"id":"' . $col_name . '"}'));
+            $col_body["id"] = $col_name;
+            if ($partitionKey) {
+                $col_body["partitionKey"] = [
+                    "paths" => [$partitionKey],
+                    "kind" => "Hash"
+                ];
+            }
+            $object = json_decode($this->document_db->createCollection($this->rid_db, json_encode($col_body)));
             $rid_col = $object->_rid;
         }
         if ($rid_col) {
