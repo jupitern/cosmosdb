@@ -24,6 +24,7 @@ class QueryBuilder
     /** @var \Jupitern\CosmosDb\CosmosDbDatabase $db */
     private $collection = "";
     private $partitionKey = null;
+    private $partitionValue = null;
     private $fields = "";
     private $from = "c";
     private $join = "";
