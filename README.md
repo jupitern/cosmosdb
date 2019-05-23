@@ -55,6 +55,15 @@ $conn = new \Jupitern\CosmosDb\CosmosDb('hostName', 'primaryKey');
 $conn->setHttpClientOptions(['verify' => false]); # optional: set guzzle client options.
 $db = $conn->selectDB('dbName');
 $collection = $db->selectCollection('collectionName');
+
+# if a collection does not exist, it will be created when you
+# attempt to select the collection. however, if you have created
+# your database with shared throughput, then all collections require a partition key.
+# selectCollection() supports a second parameter for this purpose.
+$conn = new \Jupitern\CosmosDb\CosmosDb('hostName', 'primaryKey');
+$conn->setHttpClientOptions(['verify' => false]); # optional: set guzzle client options.
+$db = $conn->selectDB('dbName');
+$collection = $db->selectCollection('collectionName', 'myPartitionKey');
 ```
 
 ### Inserting Records
