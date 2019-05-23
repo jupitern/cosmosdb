@@ -273,6 +273,55 @@ class QueryBuilder
 	}
 
     /**
+     * @param string partition key
+     * @param object document
+     * @param bool if true, return property structure as string
+     * @return string partition value
+     */
+    public function getPartitionValue(object $document, bool $toString = false)
+    {
+        # strip any slashes from the beginning
+        # and end of the partition key
+        $partitionKey = trim($this->partitionKey, '/');
+
+        # if the partition key contains slashes, the user
+        # is referencing a nested value, so we should search for it
+        if (strpos($partitionKey, '/') !== false) {
+
+            # explode the key into its parts
+            $properties = explode("/", $partitionKey);
+
+            # return the property structure as a
+            # string for use in cosmos queries
+            if ($toString) {
+                # build the property string
+                $docString = "";
+                foreach( $properties as $p ) {
+                    $docString .= ".{$p}";
+                }
+
+                # return the property string
+                return $docString;
+            }
+            # otherwise, fetch the property key value
+            else {
+
+                # iterate through the document to find the nested value
+                foreach( $properties as $p ) {
+                    $document = (object)$document->{$p};
+                }
+
+                # return the partition value
+                return $document->scalar;
+            }
+
+        } else {
+            # return as if key were in root of the document
+            return $document->{$partitionKey};
+        }
+    }
+
+    /**
      * @param $document
      * @return string|null
      * @throws \Exception
@@ -282,7 +331,7 @@ class QueryBuilder
         $document = (object)$document;
 
         $rid = is_object($document) && isset($document->_rid) ? $document->_rid : null;
-        $partitionValue = $this->partitionKey != null ? $document->{$this->partitionKey} : null;
+        $partitionValue = $this->partitionKey != null ? $this->getPartitionValue($document) : null;
         $document = json_encode($document);
 
         $result = $rid ?
@@ -308,13 +357,13 @@ class QueryBuilder
         $this->response = null;
 
         $select = $this->fields != "" ?
-            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->partitionKey}" : "");
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->getPartitionValue($document, true)}" : "");
 
-        $doc = $this->select($select)->find($isCrossPartition)->toObject();
+        $document = $this->select($select)->find($isCrossPartition)->toObject();
 
-        if ($doc) {
-            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
-            $this->response = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+        if ($document) {
+            $partitionValue = $this->partitionKey != null ? $this->getPartitionValue($document) : null;
+            $this->response = $this->collection->deleteDocument($document->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
 
             return true;
         }
@@ -332,12 +381,12 @@ class QueryBuilder
         $this->response = null;
 
         $select = $this->fields != "" ?
-            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->partitionKey}" : "");
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->getPartitionValue($document, true)}" : "");
 
         $response = [];
-        foreach ((array)$this->select($select)->findAll($isCrossPartition)->toObject() as $doc) {
-            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
-            $response[] = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+        foreach ((array)$this->select($select)->findAll($isCrossPartition)->toObject() as $document) {
+            $partitionValue = $this->partitionKey != null ? $this->getPartitionValue($document) : null;
+            $response[] = $this->collection->deleteDocument($document->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
         }
 
         $this->response = $response;
