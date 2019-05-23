@@ -180,7 +180,7 @@ class CosmosDb
      * @param boolean $isCrossPartition used for cross partition query
      * @return string JSON response
      */
-	public function query($rid_id, $rid_col, $query, $isCrossPartition = false)
+	public function query($rid_id, $rid_col, $query, $isCrossPartition = false, $partitionValue = null)
 	{
 		$headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
 		$headers['Content-Length'] = strlen($query);
@@ -188,8 +188,13 @@ class CosmosDb
 		$headers['x-ms-max-item-count'] = -1;
 		$headers['x-ms-documentdb-isquery'] = 'True';
 
-		if ($isCrossPartition)
-			$headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
+		if ($isCrossPartition) {
+            $headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
+        }
+
+        if ($partitionValue) {
+            $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionValue.'"]';
+        }
 
 		try {
 			$result = $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);

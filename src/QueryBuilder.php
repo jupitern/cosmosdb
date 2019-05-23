@@ -226,13 +226,15 @@ class QueryBuilder
         $this->response = null;
         $this->multipleResults = false;
 
+        $partitionValue = $this->partitionValue != null ? $this->partitionValue : null;
+
         $fields = !empty($this->fields) ? $this->fields : '*';
         $where = $this->where != "" ? "where {$this->where}" : "";
         $order = $this->order != "" ? "order by {$this->order}" : "";
 
         $query = "SELECT top 1 {$fields} FROM {$this->from} {$this->join} {$where} {$order}";
 
-        $this->response = $this->collection->query($query, $this->params, $isCrossPartition);
+        $this->response = $this->collection->query($query, $this->params, $isCrossPartition, $partitionValue);
 
         return $this;
     }
@@ -270,6 +272,25 @@ class QueryBuilder
     public function getPartitionKey()
 	{
 		return $this->partitionKey;
+    }
+    
+    /**
+     * @param $fieldName
+     * @return $this
+     */
+    public function setPartitionValue($fieldName)
+    {
+        $this->partitionValue = $fieldName;
+
+        return $this;
+    }
+
+    /**
+     * @return null
+     */
+    public function getPartitionValue()
+	{
+		return $this->partitionValue;
 	}
 
     /**
@@ -278,7 +299,7 @@ class QueryBuilder
      * @param bool if true, return property structure as string
      * @return string partition value
      */
-    public function getPartitionValue(object $document, bool $toString = false)
+    public function findPartitionValue(object $document, bool $toString = false)
     {
         # strip any slashes from the beginning
         # and end of the partition key
@@ -331,7 +352,7 @@ class QueryBuilder
         $document = (object)$document;
 
         $rid = is_object($document) && isset($document->_rid) ? $document->_rid : null;
-        $partitionValue = $this->partitionKey != null ? $this->getPartitionValue($document) : null;
+        $partitionValue = $this->partitionKey != null ? $this->findPartitionValue($document) : null;
         $document = json_encode($document);
 
         $result = $rid ?
@@ -357,12 +378,12 @@ class QueryBuilder
         $this->response = null;
 
         $select = $this->fields != "" ?
-            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->getPartitionValue($document, true)}" : "");
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->findPartitionValue($document, true)}" : "");
 
         $document = $this->select($select)->find($isCrossPartition)->toObject();
 
         if ($document) {
-            $partitionValue = $this->partitionKey != null ? $this->getPartitionValue($document) : null;
+            $partitionValue = $this->partitionKey != null ? $this->findPartitionValue($document) : null;
             $this->response = $this->collection->deleteDocument($document->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
 
             return true;
@@ -381,11 +402,11 @@ class QueryBuilder
         $this->response = null;
 
         $select = $this->fields != "" ?
-            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->getPartitionValue($document, true)}" : "");
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->findPartitionValue($document, true)}" : "");
 
         $response = [];
         foreach ((array)$this->select($select)->findAll($isCrossPartition)->toObject() as $document) {
-            $partitionValue = $this->partitionKey != null ? $this->getPartitionValue($document) : null;
+            $partitionValue = $this->partitionKey != null ? $this->findPartitionValue($document) : null;
             $response[] = $this->collection->deleteDocument($document->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
         }
 
