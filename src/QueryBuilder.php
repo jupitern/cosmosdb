@@ -200,6 +200,8 @@ class QueryBuilder
         $this->response = null;
         $this->multipleResults = true;
 
+        $partitionValue = $this->partitionValue != null ? $this->partitionValue : null;
+
         $limit = $this->limit != null ? "top " . (int)$this->limit : "";
         $fields = !empty($this->fields) ? $this->fields : '*';
         $where = $this->where != "" ? "where {$this->where}" : "";
@@ -207,7 +209,7 @@ class QueryBuilder
 
         $query = "SELECT {$limit} {$fields} FROM {$this->from} {$this->join} {$where} {$order}";
 
-        $this->response = $this->collection->query($query, $this->params, $isCrossPartition);
+        $this->response = $this->collection->query($query, $this->params, $isCrossPartition, $partitionValue);
 
         return $this;
     }
