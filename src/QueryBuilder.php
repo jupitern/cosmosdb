@@ -3,28 +3,34 @@
 namespace Jupitern\CosmosDb;
 
 /*
- * Copyright (C) 2017 Nuno Chaves <nunochaves@sapo.pt>
+ * Based on the AzureDocumentDB-PHP library written by Takeshi Sakurai.
+ * With updates and added features contributed by @jupitern and @purplekrayons
  *
- * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
+/**
+ * Microsoft Azure Document DB Library for PHP
+ * @link http://msdn.microsoft.com/en-us/library/azure/dn781481.aspx
+ * @link https://github.com/jupitern/cosmosdb
+ */
+
 class QueryBuilder
 {
-
-    /** @var \Jupitern\CosmosDb\CosmosDbDatabase $db */
     private $collection = "";
     private $partitionKey = null;
     private $partitionValue = null;
+    private $queryString = "";
     private $fields = "";
     private $from = "c";
     private $join = "";
@@ -33,10 +39,8 @@ class QueryBuilder
     private $limit = null;
     private $triggers = [];
     private $params = [];
-
     private $response = null;
     private $multipleResults = false;
-
 
     /**
      * Initializes the Table.
@@ -48,7 +52,6 @@ class QueryBuilder
         return new static();
     }
 
-
     /**
      * @param CosmosDbCollection $collection
      * @return $this
@@ -58,7 +61,6 @@ class QueryBuilder
         $this->collection = $collection;
         return $this;
     }
-
 
     /**
      * @param string|array $fields
@@ -82,7 +84,6 @@ class QueryBuilder
         return $this;
     }
 
-
     /**
      * @param string $join
      * @return $this
@@ -92,7 +93,6 @@ class QueryBuilder
         $this->join .= " {$join} ";
         return $this;
     }
-
 
     /**
      * @param string $where
@@ -162,7 +162,6 @@ class QueryBuilder
         return $this->where("$field NOT IN('{$values}')");
     }
 
-
     /**
      * @param string $order
      * @return $this
@@ -172,7 +171,6 @@ class QueryBuilder
         $this->order = $order;
         return $this;
     }
-
 
     /**
      * @param int $limit
@@ -184,7 +182,6 @@ class QueryBuilder
         return $this;
     }
 
-
     /**
      * @param array $params
      * @return $this
@@ -194,7 +191,6 @@ class QueryBuilder
         $this->params = (array)$params;
         return $this;
     }
-
 
     /**
      * @param boolean $isCrossPartition
@@ -216,7 +212,6 @@ class QueryBuilder
 
         return $this;
     }
-
 
     /**
      * @param boolean $isCrossPartition
@@ -254,7 +249,6 @@ class QueryBuilder
 
         return $this;
     }
-
 
     /**
      * @param $fieldName
@@ -295,51 +289,83 @@ class QueryBuilder
 	}
 
     /**
-     * @param string partition key
-     * @param object document
-     * @param bool if true, return property structure as string
-     * @return string partition value
+     * @param $fieldName
+     * @return $this
      */
-    public function findPartitionValue(object $document, bool $toString = false)
+    public function setQueryString(string $string)
+    {
+        $this->queryString .= $string;
+        return $this;
+    }
+
+    /**
+     * @return null
+     */
+    public function getQueryString()
+	{
+		return $this->queryString;
+	}
+
+    /**
+     * @param boolean $isCrossPartition
+     * @return $this
+     */
+    public function isNested(string $partitionKey)
     {
         # strip any slashes from the beginning
         # and end of the partition key
-        $partitionKey = trim($this->partitionKey, '/');
+        $partitionKey = trim($partitionKey, '/');
 
         # if the partition key contains slashes, the user
         # is referencing a nested value, so we should search for it
         if (strpos($partitionKey, '/') !== false) {
+            return true;
+        }
 
-            # explode the key into its parts
-            $properties = explode("/", $partitionKey);
+        return false;
+    }
 
-            # return the property structure as a
-            # string for use in cosmos queries
+    /**
+     * Find and set the partition value
+     * 
+     * @param object document
+     * @param bool if true, return property structure formatted for use in Azure query string
+     * @return string partition value
+     */
+    public function findPartitionValue(object $document, bool $toString = false)
+    {
+        # if the partition key contains slashes, the user
+        # is referencing a nested value, so we should find it
+        if ($this->isNested($this->partitionKey)) {
+
+            # explode the key into its properties
+            $properties = explode("/", $this->partitionKey);
+
+            # return the property structure
+            # formatted as a cosmos query string
             if ($toString) {
-                # build the property string
-                $docString = "";
+
                 foreach( $properties as $p ) {
-                    $docString .= ".{$p}";
+                    $this->setQueryString($p);
                 }
 
-                # return the property string
-                return $docString;
+                return $this->queryString;
             }
-            # otherwise, fetch the property key value
+            # otherwise, iterate through the document
+            # and find the value of the property key
             else {
 
-                # iterate through the document to find the nested value
                 foreach( $properties as $p ) {
                     $document = (object)$document->{$p};
                 }
 
-                # return the partition value
                 return $document->scalar;
             }
-
-        } else {
-            # return as if key were in root of the document
-            return $document->{$partitionKey};
+        }
+        # otherwise, assume the key is in the root of the
+        # document and return the value of the property key
+        else {
+            return $document->{$this->partitionKey};
         }
     }
 
@@ -368,7 +394,7 @@ class QueryBuilder
         return $resultObj->_rid ?? null;
     }
 
-    /* DELETE */
+    /* delete */
 
     /**
      * @param boolean $isCrossPartition
@@ -393,7 +419,6 @@ class QueryBuilder
         return false;
     }
 
-
     /**
      * @param boolean $isCrossPartition
      * @return boolean
@@ -414,7 +439,6 @@ class QueryBuilder
         $this->response = $response;
         return true;
     }
-
 
     /* triggers */
 
@@ -441,7 +465,6 @@ class QueryBuilder
         $this->triggers[$operation][$type][] = $id;
         return $this;
     }
-
 
     /**
      * @param string $operation
@@ -470,7 +493,6 @@ class QueryBuilder
 
         return $headers;
     }
-
 
     /* helpers */
 
@@ -524,5 +546,5 @@ class QueryBuilder
         $obj = $this->toObject();
         return isset($obj->{$fieldName}) ? $obj->{$fieldName} : $default;
     }
-
+    
 }

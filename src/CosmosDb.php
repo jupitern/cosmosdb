@@ -3,17 +3,17 @@
 namespace Jupitern\CosmosDb;
 
 /*
- * Copyright (C) 2014 - 2017 Takeshi SAKURAI <sakurai@pnop.co.jp>
- *      http://www.pnop.co.jp/
+ * Based on the AzureDocumentDB-PHP library written by Takeshi Sakurai.
+ * With updates and added features contributed by @jupitern and @purplekrayons
  *
- * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -21,20 +21,14 @@ namespace Jupitern\CosmosDb;
 
 /**
  * Microsoft Azure Document DB Library for PHP
- *
- * Wrapper class of Document DB REST API
- *
  * @link http://msdn.microsoft.com/en-us/library/azure/dn781481.aspx
- * @version 2.8
- * @author Takeshi SAKURAI <sakurai@pnop.co.jp>
- * @since PHP 5.3
+ * @link https://github.com/jupitern/cosmosdb
  */
-
 
 class CosmosDb
 {
     private $host;
-    private $master_key;
+    private $private_key;
     private $debug;
     public $httpClientOptions = true;
 
@@ -42,19 +36,19 @@ class CosmosDb
      * __construct
      *
      * @access public
-     * @param string $host URI of Key
-     * @param string $master_key Primary or Secondary key
-     * @param bool $debug true: return Response Headers and JSON(if you need), false(default): return JSON only
+     * @param string $host: URI of hostname
+     * @param string $private_key: Primary (or Secondary key) private key
+     * @param bool $debug: return Response Headers and JSON(if you need), false(default): return JSON only
      */
-    public function __construct($host, $master_key, $debug = false)
+    public function __construct($host, $private_key, $debug = false)
     {
         $this->host = $host;
-        $this->master_key = $master_key;
+        $this->private_key = $private_key;
         $this->debug = $debug;
     }
 
     /**
-     * set guzzle http client options using a associative array.
+     * set guzzle http client options using an associative array.
      *
      * @param array $options
      */
@@ -80,7 +74,7 @@ class CosmosDb
         $token = '1.0';
         $x_ms_version = '2017-02-22';
 
-        $key = base64_decode($this->master_key);
+        $key = base64_decode($this->private_key);
         $string_to_sign = $verb . "\n" .
             $resource_type . "\n" .
             $resource_id . "\n" .
@@ -95,7 +89,7 @@ class CosmosDb
             'Cache-Control' => 'no-cache',
             'x-ms-date' => $x_ms_date,
             'x-ms-version' => $x_ms_version,
-            'authorization' => urlencode("type=$master&ver=$token&sig=$sig")
+            'authorization' => urlencode("type={$master}&ver={$token}&sig={$sig}")
         ];
     }
 
@@ -182,41 +176,40 @@ class CosmosDb
      */
 	public function query($rid_id, $rid_col, $query, $isCrossPartition = false, $partitionValue = null)
 	{
-		$headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
-		$headers['Content-Length'] = strlen($query);
-		$headers['Content-Type'] = 'application/query+json';
-		$headers['x-ms-max-item-count'] = -1;
-		$headers['x-ms-documentdb-isquery'] = 'True';
-
+        $headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
+        $headers['Content-Length'] = strlen($query);
+        $headers['Content-Type'] = 'application/query+json';
+        $headers['x-ms-max-item-count'] = -1;
+        $headers['x-ms-documentdb-isquery'] = 'True';
+        
         if ($isCrossPartition) {
             $headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
         }
-
+        
         if ($partitionValue) {
             $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionValue.'"]';
         }
+        
+        try {
+            $result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $query);
+        }
+        catch (\GuzzleHttp\Exception\ClientException $e) {
+            $responseError = \json_decode($e->getResponse()->getBody()->getContents());
 
-		try {
-			$result = $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);
-		}
-		catch (\GuzzleHttp\Exception\ClientException $e) {
-			$responseError = \json_decode($e->getResponse()->getBody()->getContents());
+            // -- Retry the request with PK Ranges --
+            // The provided cross partition query can not be directly served by the gateway.
+            // This is a first chance (internal) exception that all newer clients will know how to
+            // handle gracefully. This exception is traced, but unless you see it bubble up as an
+            // exception (which only happens on older SDK clients), then you can safely ignore this message.
+            if ($isCrossPartition && $responseError->code === "BadRequest" && strpos($responseError->message, "cross partition query can not be directly served by the gateway") !== false) {
+                $headers["x-ms-documentdb-partitionkeyrangeid"] = $this->getPkFullRange($rid_id, $rid_col);
+                $result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $query);
+            } else {
+                throw $e;
+            }
+        }
 
-			// -- Retry the request with PK Ranges --
-			// The provided cross partition query can not be directly served by the gateway.
-			// This is a first chance (internal) exception that all newer clients will know how to
-			// handle gracefully. This exception is traced, but unless you see it bubble up as an
-			// exception (which only happens on older SDK clients), then you can safely ignore this message.
-			if ($isCrossPartition && $responseError->code === "BadRequest" && strpos($responseError->message, "cross partition query can not be directly served by the gateway") !== false) {
-				$headers["x-ms-documentdb-partitionkeyrangeid"] = $this->getPkFullRange($rid_id, $rid_col);
-				$result = $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $query);
-			} else {
-				throw $e;
-			}
-		}
-
-		return $result;
-
+        return $result;
 	}
 
 	/**
@@ -233,7 +226,7 @@ class CosmosDb
 		$headers = $this->getAuthHeaders('GET', 'pkranges', $rid_col);
 		$headers['Accept'] = 'application/json';
 		$headers['x-ms-max-item-count'] = -1;
-		$result = $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/pkranges", "GET", $headers);
+		$result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/pkranges", "GET", $headers);
 		return json_decode($result);
 	}
 
@@ -278,7 +271,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'dbs', $rid_id);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id, "GET", $headers);
+        return $this->request("/dbs/{$rid_id}", "GET", $headers);
     }
 
     /**
@@ -309,7 +302,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('PUT', 'dbs', $rid_id);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id, "PUT", $headers, $json);
+        return $this->request("/dbs/{$rid_id}", "PUT", $headers, $json);
     }
 
     /**
@@ -324,7 +317,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('DELETE', 'dbs', $rid_id);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id, "DELETE", $headers);
+        return $this->request("/dbs/{$rid_id}", "DELETE", $headers);
     }
 
     /**
@@ -339,7 +332,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'users', $rid_id);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/users", "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/users", "GET", $headers);
     }
 
     /**
@@ -355,7 +348,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'users', $rid_user);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user, "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/users/{$rid_user}", "GET", $headers);
     }
 
     /**
@@ -371,7 +364,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('POST', 'users', $rid_id);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/users", "POST", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/users", "POST", $headers, $json);
     }
 
     /**
@@ -388,7 +381,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('PUT', 'users', $rid_user);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user, "PUT", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/users/{$rid_user}", "PUT", $headers, $json);
     }
 
     /**
@@ -404,7 +397,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('DELETE', 'users', $rid_user);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user, "DELETE", $headers);
+        return $this->request("/dbs/{$rid_id}/users/{$rid_user}", "DELETE", $headers);
     }
 
     /**
@@ -419,7 +412,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'colls', $rid_id);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls", "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/colls", "GET", $headers);
     }
 
     /**
@@ -435,7 +428,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'colls', $rid_col);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col, "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}", "GET", $headers);
     }
 
     /**
@@ -451,7 +444,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('POST', 'colls', $rid_id);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/colls", "POST", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls", "POST", $headers, $json);
     }
 
     /**
@@ -467,7 +460,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('DELETE', 'colls', $rid_col);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col, "DELETE", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}", "DELETE", $headers);
     }
 
     /**
@@ -483,7 +476,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'docs', $rid_col);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "GET", $headers);
     }
 
     /**
@@ -504,7 +497,7 @@ class CosmosDb
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_HTTPGET => true,
         );
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc, "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}", "GET", $headers);
     }
 
     /**
@@ -528,7 +521,7 @@ class CosmosDb
             $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionKey.'"]';
         }
 
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs", "POST", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $json);
     }
 
     /**
@@ -553,7 +546,7 @@ class CosmosDb
             $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionKey.'"]';
         }
 
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc, "PUT", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}", "PUT", $headers, $json);
     }
 
     /**
@@ -577,7 +570,7 @@ class CosmosDb
             $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionKey.'"]';
         }
 
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc, "DELETE", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}", "DELETE", $headers);
     }
 
     /**
@@ -594,7 +587,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'attachments', $rid_doc);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments", "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}/attachments", "GET", $headers);
     }
 
     /**
@@ -612,7 +605,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'attachments', $rid_at);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments/" . $rid_at, "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}/attachments/{$rid_at}", "GET", $headers);
     }
 
     /**
@@ -634,7 +627,7 @@ class CosmosDb
         $headers['Content-Length'] = strlen($file);
         $headers['Content-Type'] = $content_type;
         $headers['Slug'] = urlencode($filename);
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments", "POST", $headers, $file);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}/attachments", "POST", $headers, $file);
     }
 
     /**
@@ -657,7 +650,7 @@ class CosmosDb
         $headers['Content-Length'] = strlen($file);
         $headers['Content-Type'] = $content_type;
         $headers['Slug'] = urlencode($filename);
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments/" . $rid_at, "PUT", $headers, $file);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}/attachments/{$rid_at}", "PUT", $headers, $file);
     }
 
     /**
@@ -675,7 +668,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('DELETE', 'attachments', $rid_at);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/docs/" . $rid_doc . "/attachments/" . $rid_at, "DELETE", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}/attachments/{$rid_at}", "DELETE", $headers);
     }
 
     /**
@@ -704,7 +697,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'offers', $rid);
         $headers['Content-Length'] = '0';
-        return $this->request("/offers/" . $rid, "GET", $headers);
+        return $this->request("/offers/{$rid}", "GET", $headers);
     }
 
     /**
@@ -720,7 +713,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('PUT', 'offers', $rid);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/offers/" . $rid, "PUT", $headers, $json);
+        return $this->request("/offers/{$rid}", "PUT", $headers, $json);
     }
 
     /**
@@ -753,7 +746,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'permissions', $rid_user);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions", "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/users/{$rid_user}/permissions", "GET", $headers);
     }
 
     /**
@@ -770,7 +763,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('POST', 'permissions', $rid_user);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions", "POST", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/users/{$rid_user}/permissions", "POST", $headers, $json);
     }
 
     /**
@@ -787,7 +780,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'permissions', $rid_permission);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions/" . $rid_permission, "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/users/{$rid_user}/permissions/{$rid_permission}", "GET", $headers);
     }
 
     /**
@@ -805,7 +798,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('PUT', 'permissions', $rid_permission);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions/" . $rid_permission, "PUT", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/users/{$rid_user}/permissions/{$rid_permission}", "PUT", $headers, $json);
     }
 
     /**
@@ -822,7 +815,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('DELETE', 'permissions', $rid_permission);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/users/" . $rid_user . "/permissions/" . $rid_permission, "DELETE", $headers);
+        return $this->request("/dbs/{$rid_id}/users/{$rid_user}/permissions/{$rid_permission}", "DELETE", $headers);
     }
 
     /**
@@ -838,7 +831,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'sprocs', $rid_col);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs", "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/sprocs", "GET", $headers);
     }
 
     /**
@@ -856,7 +849,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('POST', 'sprocs', $rid_sproc);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs/" . $rid_sproc, "POST", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/sprocs/{$rid_sproc}", "POST", $headers, $json);
     }
 
     /**
@@ -873,7 +866,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('POST', 'sprocs', $rid_col);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs", "POST", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/sprocs", "POST", $headers, $json);
     }
 
     /**
@@ -891,7 +884,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('PUT', 'sprocs', $rid_sproc);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs/" . $rid_sproc, "PUT", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/sprocs/{$rid_sproc}", "PUT", $headers, $json);
     }
 
     /**
@@ -908,7 +901,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('DELETE', 'sprocs', $rid_sproc);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/sprocs/" . $rid_sproc, "DELETE", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/sprocs/{$rid_sproc}", "DELETE", $headers);
     }
 
     /**
@@ -924,7 +917,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'udfs', $rid_col);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/udfs", "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/udfs", "GET", $headers);
     }
 
     /**
@@ -941,7 +934,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('POST', 'udfs', $rid_col);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/udfs", "POST", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/udfs", "POST", $headers, $json);
     }
 
     /**
@@ -959,7 +952,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('PUT', 'udfs', $rid_udf);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/udfs/" . $rid_udf, "PUT", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/udfs/{$rid_udf}", "PUT", $headers, $json);
     }
 
     /**
@@ -976,7 +969,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('DELETE', 'udfs', $rid_udf);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/udfs/" . $rid_udf, "DELETE", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/udfs/{$rid_udf}", "DELETE", $headers);
     }
 
     /**
@@ -992,7 +985,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'triggers', $rid_col);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/triggers", "GET", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/triggers", "GET", $headers);
     }
 
     /**
@@ -1009,7 +1002,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('POST', 'triggers', $rid_col);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/triggers", "POST", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/triggers", "POST", $headers, $json);
     }
 
     /**
@@ -1027,7 +1020,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('PUT', 'triggers', $rid_trigger);
         $headers['Content-Length'] = strlen($json);
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/triggers/" . $rid_trigger, "PUT", $headers, $json);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/triggers/{$rid_trigger}", "PUT", $headers, $json);
     }
 
     /**
@@ -1044,7 +1037,7 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('DELETE', 'triggers', $rid_trigger);
         $headers['Content-Length'] = '0';
-        return $this->request("/dbs/" . $rid_id . "/colls/" . $rid_col . "/triggers/" . $rid_trigger, "DELETE", $headers);
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/triggers/{$rid_trigger}", "DELETE", $headers);
     }
 
 }
