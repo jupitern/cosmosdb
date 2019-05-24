@@ -16,7 +16,7 @@ Include jupitern/cosmosdb in your project, by adding it to your composer.json fi
 
 ## Changelog
 
-### v2.1.0
+### v2.4.0
 
 - added support for nested partition keys
 
