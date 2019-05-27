@@ -3,17 +3,16 @@
 namespace Jupitern\CosmosDb;
 
 /*
- * Copyright (C) 2014 - 2017 Takeshi SAKURAI <sakurai@pnop.co.jp>
- *      http://www.pnop.co.jp/
+ * Based on the AzureDocumentDB-PHP library written by Takeshi Sakurai.
  *
- * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -21,13 +20,8 @@ namespace Jupitern\CosmosDb;
 
 /**
  * Microsoft Azure Document DB Library for PHP
- *
- * Wrapper class of Document DB REST API
- *
  * @link http://msdn.microsoft.com/en-us/library/azure/dn781481.aspx
- * @version 2.8
- * @author Takeshi SAKURAI <sakurai@pnop.co.jp>
- * @since PHP 5.3
+ * @link https://github.com/jupitern/cosmosdb
  */
 
 class CosmosDbCollection
@@ -59,7 +53,7 @@ class CosmosDbCollection
      * @param boolean $isCrossPartition used for cross partition query
      * @return string JSON strings
      */
-    public function query($query, $params = [], $isCrossPartition = false)
+    public function query($query, $params = [], $isCrossPartition = false, $partitionValue = null)
     {
         $paramsJson = [];
         foreach ($params as $key => $val) {
@@ -70,7 +64,7 @@ class CosmosDbCollection
 
         $query = '{"query": "' . str_replace('"', '\\"', $query) . '", "parameters": [' . implode(',', $paramsJson) . ']}';
 
-        return $this->document_db->query($this->rid_db, $this->rid_col, $query, $isCrossPartition);
+        return $this->document_db->query($this->rid_db, $this->rid_col, $query, $isCrossPartition, $partitionValue);
     }
 
 	/**
@@ -162,6 +156,7 @@ class CosmosDbCollection
         return $this->document_db->getPermission($this->rid_db, $uid, $pid);
       }
     */
+    
     public function listStoredProcedures()
     {
         return $this->document_db->listStoredProcedures($this->rid_db, $this->rid_col);
