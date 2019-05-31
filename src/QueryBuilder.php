@@ -340,7 +340,7 @@ class QueryBuilder
         if ($this->isNested($this->partitionKey)) {
 
             # explode the key into its properties
-            $properties = explode("/", $this->partitionKey);
+            $properties = array_values(array_filter(explode("/", $this->partitionKey)));
 
             # return the property structure
             # formatted as a cosmos query string
