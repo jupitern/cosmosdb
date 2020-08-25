@@ -406,8 +406,7 @@ class QueryBuilder
         $this->response = null;
 
         $select = $this->fields != "" ?
-            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->findPartitionValue($document, true)}" : "");
-
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c." . $this->partitionKey : "");
         $document = $this->select($select)->find($isCrossPartition)->toObject();
 
         if ($document) {
@@ -429,8 +428,7 @@ class QueryBuilder
         $this->response = null;
 
         $select = $this->fields != "" ?
-            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->findPartitionValue($document, true)}" : "");
-
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c." . $this->partitionKey : "");
         $response = [];
         foreach ((array)$this->select($select)->findAll($isCrossPartition)->toObject() as $document) {
             $partitionValue = $this->partitionKey != null ? $this->findPartitionValue($document) : null;
