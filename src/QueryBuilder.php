@@ -500,7 +500,26 @@ class QueryBuilder
      */
     public function toJson()
     {
-        return $this->response;
+        /*
+         * If the CosmosDB result set contains many documents, CosmosDB might apply pagination. If this is detected,
+         * all pages are requested one by one, until all results are loaded. These individual responses are contained
+         * in $this->response. If no pagination is applied, $this->response is an array containing a single response.
+         *
+         * $results holds the documents returned by each of the responses.
+         */
+        $results = [
+            '_rid' => '',
+            '_count' => 0,
+            'Documents' => []
+        ];
+        foreach ($this->response as $response) {
+            $res = json_decode($response);
+            $results['_rid'] = $res->_rid;
+            $results['_count'] = $results['_count'] + $res->_count;
+            $docs = $res->Documents ?? [];
+            $results['Documents'] = array_merge($results['Documents'], $docs);
+        }
+        return json_encode($results);
     }
 
     /**
@@ -508,15 +527,25 @@ class QueryBuilder
      */
     public function toObject()
     {
-        $res = json_decode($this->response);
-        $docs = $res->Documents ?? [];
-        if (!is_array($docs) || empty($docs)) return [];
+        /*
+         * If the CosmosDB result set contains many documents, CosmosDB might apply pagination. If this is detected,
+         * all pages are requested one by one, until all results are loaded. These individual responses are contained
+         * in $this->response. If no pagination is applied, $this->response is an array containing a single response.
+         *
+         * $results holds the documents returned by each of the responses.
+         */
+        $results = [];
+        foreach ($this->response as $response) {
+            $res = json_decode($response);
+            $docs = $res->Documents ?? [];
+            $results = array_merge($results, $docs);
+        }
+        if (!is_array($results || empty($results))) return [];
 
         if ($this->multipleResults) {
-            return $docs;
+            return $results;
         }
-
-        return isset($docs[0]) ? $docs[0] : null;
+        return isset($results[0]) ? $results[0] : null;
     }
 
     /**
@@ -525,14 +554,25 @@ class QueryBuilder
      */
     public function toArray($arrayKey = null)
     {
-        $res = json_decode($this->response);
-        $docs = $res->Documents ?? [];
-
-        if ($this->multipleResults) {
-            return $arrayKey != null ? array_combine(array_column($docs, $arrayKey), $docs) : $docs;
+        /*
+         * If the CosmosDB result set contains many documents, CosmosDB might apply pagination. If this is detected,
+         * all pages are requested one by one, until all results are loaded. These individual responses are contained
+         * in $this->response. If no pagination is applied, $this->response is an array containing a single response.
+         *
+         * $results holds the documents returned by each of the responses.
+         */
+        $results = [];
+        foreach ($this->response as $response) {
+            $res = json_decode($response);
+            $docs = $res->Documents ?? [];
+            if ($this->multipleResults) {
+                $docs = $arrayKey != null ? array_combine(array_column($docs, $arrayKey), $docs) : $docs;
+            } else {
+                $docs = isset($docs[0]) ? $docs[0] : null;
+            }
+            $results = array_merge($results, $docs);
         }
-
-        return isset($docs[0]) ? $docs[0] : null;
+        return $results;
     }
 
     /**
