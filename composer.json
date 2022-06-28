@@ -8,9 +8,9 @@
     "source": "https://github.com/jupitern/cosmosdb",
     "issues": "https://github.com/jupitern/cosmosdb/issues"
   },
-  "require"    :{
+  "require" :{
     "php":">=7.0",
-    "guzzlehttp/guzzle": "~6.0"
+    "guzzlehttp/guzzle": "^7.4"
   },
   "autoload": {
     "psr-4": {
