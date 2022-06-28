@@ -1,0 +1,21 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+max_line_length = null
+indent_style = space
+insert_final_newline = true
+
+# PHP
+[*.php]
+indent_size = 4
+
+# JSON
+[*.{json}]
+indent_size = 4
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false

@@ -3,27 +3,33 @@
 namespace Jupitern\CosmosDb;
 
 /*
- * Copyright (C) 2017 Nuno Chaves <nunochaves@sapo.pt>
+ * Based on the AzureDocumentDB-PHP library written by Takeshi Sakurai.
  *
- * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
+/**
+ * Microsoft Azure Document DB Library for PHP
+ * @link http://msdn.microsoft.com/en-us/library/azure/dn781481.aspx
+ * @link https://github.com/jupitern/cosmosdb
+ */
+
 class QueryBuilder
 {
-
-    /** @var \Jupitern\CosmosDb\CosmosDbDatabase $db */
     private $collection = "";
     private $partitionKey = null;
+    private $partitionValue = null;
+    private $queryString = "";
     private $fields = "";
     private $from = "c";
     private $join = "";
@@ -32,10 +38,8 @@ class QueryBuilder
     private $limit = null;
     private $triggers = [];
     private $params = [];
-
     private $response = null;
     private $multipleResults = false;
-
 
     /**
      * Initializes the Table.
@@ -47,7 +51,6 @@ class QueryBuilder
         return new static();
     }
 
-
     /**
      * @param CosmosDbCollection $collection
      * @return $this
@@ -58,19 +61,20 @@ class QueryBuilder
         return $this;
     }
 
-
     /**
-     * @param $fields
+     * @param string|array $fields
      * @return $this
      */
     public function select($fields)
     {
+        if (is_array($fields))
+            $fields = 'c["' . implode('"], c["', $fields) . '"]';
         $this->fields = $fields;
         return $this;
     }
 
     /**
-     * @param $from
+     * @param string $from
      * @return $this
      */
     public function from($from)
@@ -79,9 +83,8 @@ class QueryBuilder
         return $this;
     }
 
-
     /**
-     * @param $join
+     * @param string $join
      * @return $this
      */
     public function join($join)
@@ -90,9 +93,8 @@ class QueryBuilder
         return $this;
     }
 
-
     /**
-     * @param $where
+     * @param string $where
      * @return $this
      */
     public function where($where)
@@ -103,9 +105,64 @@ class QueryBuilder
         return $this;
     }
 
+    /**
+     * @param string $field
+     * @param string $value
+     * @return QueryBuilder
+     */
+    public function whereStartsWith($field, $value)
+	{
+		return $this->where("STARTSWITH($field, '{$value}')");
+	}
 
     /**
-     * @param $order
+     * @param string $field
+     * @param string $value
+     * @return QueryBuilder
+     */
+    public function whereEndsWith($field, $value)
+	{
+		return $this->where("ENDSWITH($field, '{$value}')");
+	}
+
+    /**
+     * @param string $field
+     * @param string $value
+     * @return QueryBuilder
+     */
+    public function whereContains($field, $value)
+	{
+		return $this->where("CONTAINS($field, '{$value}'");
+	}
+
+    /**
+     * @param string $field
+     * @param array $values
+     * @return $this|QueryBuilder
+     */
+    public function whereIn($field, $values)
+	{
+	    if (!is_array($values) || empty($values)) return $this;
+		if (is_array($values)) $values = implode("', '", $values);
+
+		return $this->where("$field IN('{$values}')");
+	}
+
+    /**
+     * @param string $field
+     * @param array $values
+     * @return $this|QueryBuilder
+     */
+    public function whereNotIn($field, $values)
+    {
+        if (!is_array($values) || empty($values)) return $this;
+        if (is_array($values)) $values = implode("', '", $values);
+
+        return $this->where("$field NOT IN('{$values}')");
+    }
+
+    /**
+     * @param string $order
      * @return $this
      */
     public function order($order)
@@ -114,17 +171,15 @@ class QueryBuilder
         return $this;
     }
 
-
     /**
-     * @param $limit
+     * @param int $limit
      * @return $this
      */
     public function limit($limit)
     {
-        $this->limit = $limit;
+        $this->limit = (int)$limit;
         return $this;
     }
-
 
     /**
      * @param array $params
@@ -136,7 +191,6 @@ class QueryBuilder
         return $this;
     }
 
-
     /**
      * @param boolean $isCrossPartition
      * @return $this
@@ -146,6 +200,8 @@ class QueryBuilder
         $this->response = null;
         $this->multipleResults = true;
 
+        $partitionValue = $this->partitionValue != null ? $this->partitionValue : null;
+
         $limit = $this->limit != null ? "top " . (int)$this->limit : "";
         $fields = !empty($this->fields) ? $this->fields : '*';
         $where = $this->where != "" ? "where {$this->where}" : "";
@@ -153,11 +209,10 @@ class QueryBuilder
 
         $query = "SELECT {$limit} {$fields} FROM {$this->from} {$this->join} {$where} {$order}";
 
-        $this->response = $this->collection->query($query, $this->params, $isCrossPartition);
+        $this->response = $this->collection->query($query, $this->params, $isCrossPartition, $partitionValue);
 
         return $this;
     }
-
 
     /**
      * @param boolean $isCrossPartition
@@ -168,13 +223,15 @@ class QueryBuilder
         $this->response = null;
         $this->multipleResults = false;
 
+        $partitionValue = $this->partitionValue != null ? $this->partitionValue : null;
+
         $fields = !empty($this->fields) ? $this->fields : '*';
         $where = $this->where != "" ? "where {$this->where}" : "";
         $order = $this->order != "" ? "order by {$this->order}" : "";
 
         $query = "SELECT top 1 {$fields} FROM {$this->from} {$this->join} {$where} {$order}";
 
-        $this->response = $this->collection->query($query, $this->params, $isCrossPartition);
+        $this->response = $this->collection->query($query, $this->params, $isCrossPartition, $partitionValue);
 
         return $this;
     }
@@ -194,7 +251,6 @@ class QueryBuilder
         return $this;
     }
 
-
     /**
      * @param $fieldName
      * @return $this
@@ -206,6 +262,113 @@ class QueryBuilder
         return $this;
     }
 
+    /**
+     * @return null
+     */
+    public function getPartitionKey()
+	{
+		return $this->partitionKey;
+    }
+    
+    /**
+     * @param $fieldName
+     * @return $this
+     */
+    public function setPartitionValue($fieldName)
+    {
+        $this->partitionValue = $fieldName;
+
+        return $this;
+    }
+
+    /**
+     * @return null
+     */
+    public function getPartitionValue()
+	{
+		return $this->partitionValue;
+	}
+
+    /**
+     * @param $fieldName
+     * @return $this
+     */
+    public function setQueryString(string $string)
+    {
+        $this->queryString .= $string;
+        return $this;
+    }
+
+    /**
+     * @return null
+     */
+    public function getQueryString()
+	{
+		return $this->queryString;
+	}
+
+    /**
+     * @param boolean $isCrossPartition
+     * @return $this
+     */
+    public function isNested(string $partitionKey)
+    {
+        # strip any slashes from the beginning
+        # and end of the partition key
+        $partitionKey = trim($partitionKey, '/');
+
+        # if the partition key contains slashes, the user
+        # is referencing a nested value, so we should search for it
+        if (strpos($partitionKey, '/') !== false) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Find and set the partition value
+     * 
+     * @param object document
+     * @param bool if true, return property structure formatted for use in Azure query string
+     * @return string partition value
+     */
+    public function findPartitionValue(object $document, bool $toString = false)
+    {
+        # if the partition key contains slashes, the user
+        # is referencing a nested value, so we should find it
+        if ($this->isNested($this->partitionKey)) {
+
+            # explode the key into its properties
+            $properties = array_values(array_filter(explode("/", $this->partitionKey)));
+
+            # return the property structure
+            # formatted as a cosmos query string
+            if ($toString) {
+
+                foreach( $properties as $p ) {
+                    $this->setQueryString($p);
+                }
+
+                return $this->queryString;
+            }
+            # otherwise, iterate through the document
+            # and find the value of the property key
+            else {
+
+                foreach( $properties as $p ) {
+                    $document = (object)$document->{$p};
+                }
+
+                return $document->scalar;
+            }
+        }
+        # otherwise, assume the key is in the root of the
+        # document and return the value of the property key
+        else {
+            return $document->{$this->partitionKey};
+        }
+    }
 
     /**
      * @param $document
@@ -217,7 +380,7 @@ class QueryBuilder
         $document = (object)$document;
 
         $rid = is_object($document) && isset($document->_rid) ? $document->_rid : null;
-        $partitionValue = $this->partitionKey != null ? $document->{$this->partitionKey} : null;
+        $partitionValue = $this->partitionKey != null ? $this->findPartitionValue($document) : null;
         $document = json_encode($document);
 
         $result = $rid ?
@@ -232,7 +395,7 @@ class QueryBuilder
         return $resultObj->_rid ?? null;
     }
 
-    /* DELETE */
+    /* delete */
 
     /**
      * @param boolean $isCrossPartition
@@ -243,20 +406,18 @@ class QueryBuilder
         $this->response = null;
 
         $select = $this->fields != "" ?
-            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->partitionKey}" : "");
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c." . $this->partitionKey : "");
+        $document = $this->select($select)->find($isCrossPartition)->toObject();
 
-        $doc = $this->select($select)->find($isCrossPartition)->toObject();
-
-        if ($doc) {
-            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
-            $this->response = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+        if ($document) {
+            $partitionValue = $this->partitionKey != null ? $this->findPartitionValue($document) : null;
+            $this->response = $this->collection->deleteDocument($document->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
 
             return true;
         }
 
         return false;
     }
-
 
     /**
      * @param boolean $isCrossPartition
@@ -267,18 +428,16 @@ class QueryBuilder
         $this->response = null;
 
         $select = $this->fields != "" ?
-            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c.{$this->partitionKey}" : "");
-
+            $this->fields : "c._rid" . ($this->partitionKey != null ? ", c." . $this->partitionKey : "");
         $response = [];
-        foreach ((array)$this->select($select)->findAll($isCrossPartition)->toObject() as $doc) {
-            $partitionValue = $this->partitionKey != null ? $doc->{$this->partitionKey} : null;
-            $response[] = $this->collection->deleteDocument($doc->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
+        foreach ((array)$this->select($select)->findAll($isCrossPartition)->toObject() as $document) {
+            $partitionValue = $this->partitionKey != null ? $this->findPartitionValue($document) : null;
+            $response[] = $this->collection->deleteDocument($document->_rid, $partitionValue, $this->triggersAsHeaders("delete"));
         }
 
         $this->response = $response;
         return true;
     }
-
 
     /* triggers */
 
@@ -305,7 +464,6 @@ class QueryBuilder
         $this->triggers[$operation][$type][] = $id;
         return $this;
     }
-
 
     /**
      * @param string $operation
@@ -335,7 +493,6 @@ class QueryBuilder
         return $headers;
     }
 
-
     /* helpers */
 
     /**
@@ -343,7 +500,26 @@ class QueryBuilder
      */
     public function toJson()
     {
-        return $this->response;
+        /*
+         * If the CosmosDB result set contains many documents, CosmosDB might apply pagination. If this is detected,
+         * all pages are requested one by one, until all results are loaded. These individual responses are contained
+         * in $this->response. If no pagination is applied, $this->response is an array containing a single response.
+         *
+         * $results holds the documents returned by each of the responses.
+         */
+        $results = [
+            '_rid' => '',
+            '_count' => 0,
+            'Documents' => []
+        ];
+        foreach ($this->response as $response) {
+            $res = json_decode($response);
+            $results['_rid'] = $res->_rid;
+            $results['_count'] = $results['_count'] + $res->_count;
+            $docs = $res->Documents ?? [];
+            $results['Documents'] = array_merge($results['Documents'], $docs);
+        }
+        return json_encode($results);
     }
 
     /**
@@ -351,15 +527,25 @@ class QueryBuilder
      */
     public function toObject()
     {
-        $res = json_decode($this->response);
-        $docs = $res->Documents ?? [];
-        if (!is_array($docs) || empty($docs)) return [];
+        /*
+         * If the CosmosDB result set contains many documents, CosmosDB might apply pagination. If this is detected,
+         * all pages are requested one by one, until all results are loaded. These individual responses are contained
+         * in $this->response. If no pagination is applied, $this->response is an array containing a single response.
+         *
+         * $results holds the documents returned by each of the responses.
+         */
+        $results = [];
+        foreach ($this->response as $response) {
+            $res = json_decode($response);
+            $docs = $res->Documents ?? [];
+            $results = array_merge($results, $docs);
+        }
+        if (!is_array($results || empty($results))) return [];
 
         if ($this->multipleResults) {
-            return $docs;
+            return $results;
         }
-
-        return isset($docs[0]) ? $docs[0] : null;
+        return isset($results[0]) ? $results[0] : null;
     }
 
     /**
@@ -368,14 +554,25 @@ class QueryBuilder
      */
     public function toArray($arrayKey = null)
     {
-        $res = json_decode($this->response);
-        $docs = $res->Documents ?? [];
-
-        if ($this->multipleResults) {
-            return $arrayKey != null ? array_combine(array_column($docs, $arrayKey), $docs) : $docs;
+        /*
+         * If the CosmosDB result set contains many documents, CosmosDB might apply pagination. If this is detected,
+         * all pages are requested one by one, until all results are loaded. These individual responses are contained
+         * in $this->response. If no pagination is applied, $this->response is an array containing a single response.
+         *
+         * $results holds the documents returned by each of the responses.
+         */
+        $results = [];
+        foreach ($this->response as $response) {
+            $res = json_decode($response);
+            $docs = $res->Documents ?? [];
+            if ($this->multipleResults) {
+                $docs = $arrayKey != null ? array_combine(array_column($docs, $arrayKey), $docs) : $docs;
+            } else {
+                $docs = isset($docs[0]) ? $docs[0] : null;
+            }
+            $results = array_merge($results, $docs);
         }
-
-        return isset($docs[0]) ? $docs[0] : null;
+        return $results;
     }
 
     /**
@@ -388,5 +585,5 @@ class QueryBuilder
         $obj = $this->toObject();
         return isset($obj->{$fieldName}) ? $obj->{$fieldName} : $default;
     }
-
+    
 }
