@@ -1,35 +1,14 @@
 <?php
 
 namespace Jupitern\CosmosDb;
-
-/*
- * Based on the AzureDocumentDB-PHP library written by Takeshi Sakurai.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/**
- * Microsoft Azure Document DB Library for PHP
- * @link http://msdn.microsoft.com/en-us/library/azure/dn781481.aspx
- * @link https://github.com/jupitern/cosmosdb
- */
+use GuzzleHttp\Exception\GuzzleException;
 
 class CosmosDbDatabase
 {
-    private $document_db;
-    private $rid_db;
+    private CosmosDb $document_db;
+    private string $rid_db;
 
-    public function __construct($document_db, $rid_db)
+    public function __construct(CosmosDb $document_db, string $rid_db)
     {
         $this->document_db = $document_db;
         $this->rid_db = $rid_db;
@@ -40,8 +19,9 @@ class CosmosDbDatabase
      *
      * @access public
      * @param string $col_name Collection name
+     * @throws GuzzleException
      */
-    public function selectCollection($col_name, $partitionKey = null)
+    public function selectCollection(string $col_name): CosmosDbCollection|null
     {
         $rid_col = false;
         $object = json_decode($this->document_db->listCollections($this->rid_db));
@@ -51,22 +31,30 @@ class CosmosDbDatabase
                 $rid_col = $col_list[$i]->_rid;
             }
         }
-        if (!$rid_col) {
-            $col_body["id"] = $col_name;
-            if ($partitionKey) {
-                $col_body["partitionKey"] = [
-                    "paths" => [$partitionKey],
-                    "kind" => "Hash"
-                ];
-            }
-            $object = json_decode($this->document_db->createCollection($this->rid_db, json_encode($col_body)));
-            $rid_col = $object->_rid;
+
+        return $rid_col ? new CosmosDbCollection($this->document_db, $this->rid_db, $rid_col) : null;
+    }
+
+
+    /**
+     * @param string $col_name
+     * @param string|null $partitionKey
+     * @return CosmosDbCollection|null
+     * @throws GuzzleException
+     */
+    public function createCollection(string $col_name, string $partitionKey = null): CosmosDbCollection|null
+    {
+        $col_body = ["id" => $col_name];
+        if ($partitionKey) {
+            $col_body["partitionKey"] = [
+                "paths" => [$partitionKey],
+                "kind" => "Hash"
+            ];
         }
-        if ($rid_col) {
-            return new CosmosDbCollection($this->document_db, $this->rid_db, $rid_col);
-        } else {
-            return false;
-        }
+
+        $object = json_decode($this->document_db->createCollection($this->rid_db, json_encode($col_body)));
+
+        return $object->_rid ? new CosmosDbCollection($this->document_db, $this->rid_db, $object->_rid) : null;
     }
 
 }

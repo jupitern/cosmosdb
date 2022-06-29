@@ -2,33 +2,11 @@
 
 namespace Jupitern\CosmosDb;
 
-/*
- * Based on the AzureDocumentDB-PHP library written by Takeshi Sakurai.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/**
- * Microsoft Azure Document DB Library for PHP
- * @link http://msdn.microsoft.com/en-us/library/azure/dn781481.aspx
- * @link https://github.com/jupitern/cosmosdb
- */
-
 class CosmosDbCollection
 {
-    private $document_db;
-    private $rid_db;
-    private $rid_col;
+    private CosmosDb $document_db;
+    private string $rid_db;
+    private string $rid_col;
 
     /**
      * __construct
@@ -38,7 +16,7 @@ class CosmosDbCollection
      * @param string $rid_db Database ID
      * @param string $rid_col Collection ID
      */
-    public function __construct($document_db, $rid_db, $rid_col)
+    public function __construct(CosmosDb $document_db, string $rid_db, string $rid_col)
     {
         $this->document_db = $document_db;
         $this->rid_db = $rid_db;
@@ -51,7 +29,7 @@ class CosmosDbCollection
      * @param string $query Query
      * @param array $params
      * @param boolean $isCrossPartition used for cross partition query
-     * @return string JSON strings
+     * @return array JSON strings
      */
     public function query($query, $params = [], $isCrossPartition = false, $partitionValue = null)
     {
@@ -179,7 +157,7 @@ class CosmosDbCollection
 
     public function deleteStoredProcedure($sproc_name)
     {
-        return $this->document_db->deleteStoredProcedure($this->rid_db, $this->rid_col, $sporc_name);
+        return $this->document_db->deleteStoredProcedure($this->rid_db, $this->rid_col, $sproc_name);
     }
 
     public function listUserDefinedFunctions()
