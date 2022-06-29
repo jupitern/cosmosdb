@@ -8,8 +8,9 @@
     "source": "https://github.com/jupitern/cosmosdb",
     "issues": "https://github.com/jupitern/cosmosdb/issues"
   },
-  "require" :{
-    "php":">=7.0",
+  "require": {
+    "php": ">=8.0",
+    "ext-curl": "*",
     "guzzlehttp/guzzle": "^7.4"
   },
   "autoload": {
