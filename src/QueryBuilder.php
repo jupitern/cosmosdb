@@ -375,7 +375,7 @@ class QueryBuilder
      * @return array Fully formed MOVE patch operation element
      */
 
-    public function patchOpMove(string $fromPath, string $toPath): array
+    public function getPatchOpMove(string $fromPath, string $toPath): array
     {
 
         $op = [
