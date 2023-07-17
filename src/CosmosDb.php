@@ -39,7 +39,7 @@ class CosmosDb
      *
      * @link http://msdn.microsoft.com/en-us/library/azure/dn783368.aspx
      * @access private
-     * @param string $verb Request Method (GET, POST, PUT, DELETE)
+     * @param string $verb Request Method (GET, POST, PUT, DELETE, PATCH)
      * @param string $resource_type Resource Type
      * @param string $resource_id Resource ID
      * @return array of Request Headers
@@ -151,20 +151,20 @@ class CosmosDb
      * @return array JSON response
      * @throws GuzzleException
      */
-	public function query(string $rid_id, string $rid_col, string $query, bool $isCrossPartition = false, $partitionValue = null): array
-	{
+    public function query(string $rid_id, string $rid_col, string $query, bool $isCrossPartition = false, $partitionValue = null): array
+    {
         $headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
         $headers['Content-Length'] = strlen($query);
         $headers['Content-Type'] = 'application/query+json';
         $headers['x-ms-max-item-count'] = -1;
         $headers['x-ms-documentdb-isquery'] = 'True';
-        
+
         if ($isCrossPartition) {
             $headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
         }
-        
+
         if ($partitionValue) {
-            $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionValue.'"]';
+            $headers['x-ms-documentdb-partitionkey'] = '["' . $partitionValue . '"]';
         }
         /*
          * Fix for https://github.com/jupitern/cosmosdb/issues/21 (credits to https://github.com/ElvenSpellmaker).
@@ -186,8 +186,8 @@ class CosmosDb
                 $result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $query);
                 $results[] = $result->getBody()->getContents();
             }
-        }
-        catch (\GuzzleHttp\Exception\ClientException $e) {
+        } 
+		  catch (\GuzzleHttp\Exception\ClientException $e) {
             $responseError = \json_decode($e->getResponse()->getBody()->getContents());
 
             // -- Retry the request with PK Ranges --
@@ -220,14 +220,14 @@ class CosmosDb
      * @return mixed
      * @throws GuzzleException
      */
-	public function getPkRanges(string $rid_id, string $rid_col): mixed
+    public function getPkRanges(string $rid_id, string $rid_col): mixed
     {
-		$headers = $this->getAuthHeaders('GET', 'pkranges', $rid_col);
-		$headers['Accept'] = 'application/json';
-		$headers['x-ms-max-item-count'] = -1;
-		$result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/pkranges", "GET", $headers);
-		return json_decode($result->getBody()->getContents());
-	}
+        $headers = $this->getAuthHeaders('GET', 'pkranges', $rid_col);
+        $headers['Accept'] = 'application/json';
+        $headers['x-ms-max-item-count'] = -1;
+        $result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/pkranges", "GET", $headers);
+        return json_decode($result->getBody()->getContents());
+    }
 
     /**
      * getPkFullRange
@@ -238,12 +238,12 @@ class CosmosDb
      * @return string
      * @throws GuzzleException
      */
-	public function getPkFullRange($rid_id, $rid_col): string
+    public function getPkFullRange($rid_id, $rid_col): string
     {
-		$result = $this->getPkRanges($rid_id, $rid_col);
-		$ids = \array_column($result->PartitionKeyRanges, "id");
-		return $result->_rid . "," . \implode(",", $ids);
-	}
+        $result = $this->getPkRanges($rid_id, $rid_col);
+        $ids = \array_column($result->PartitionKeyRanges, "id");
+        return $result->_rid . "," . \implode(",", $ids);
+    }
 
     /**
      * listDatabases
@@ -534,7 +534,7 @@ class CosmosDb
         $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = strlen($json);
         if ($partitionKey !== null) {
-            $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionKey.'"]';
+            $headers['x-ms-documentdb-partitionkey'] = '["' . $partitionKey . '"]';
         }
 
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $json)->getBody()->getContents();
@@ -560,10 +560,37 @@ class CosmosDb
         $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = strlen($json);
         if ($partitionKey !== null) {
-            $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionKey.'"]';
+            $headers['x-ms-documentdb-partitionkey'] = '["' . $partitionKey . '"]';
         }
 
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}", "PUT", $headers, $json)->getBody()->getContents();
+    }
+
+    /**
+     * patchDocument
+     *
+     * @link https://learn.microsoft.com/en-us/azure/cosmos-db/partial-document-update#rest-api-reference-for-partial-document-update
+     * @access public
+     * @param string $rid_id Resource ID
+     * @param string $rid_col Resource Collection ID
+     * @param string $rid_doc Resource Doc ID
+     * @param string $json JSON request
+     * @param string|null $partitionKey
+     * @param array $headers Optional headers to send along with the request
+     * @return string JSON response
+     * @throws GuzzleException
+     */
+    public function patchDocument(string $rid_id, string $rid_col, string $rid_doc, string $json, string $partitionKey = null, array $headers = []): string
+    {
+        $authHeaders = $this->getAuthHeaders('PATCH', 'docs', $rid_doc);
+        $headers = \array_merge($headers, $authHeaders);
+        $headers['Content-Length'] = strlen($json);
+        $headers['Content-Type'] = 'application/json_patch+json';
+        if ($partitionKey !== null) {
+            $headers['x-ms-documentdb-partitionkey'] = '["' . $partitionKey . '"]';
+        }
+
+        return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}", "PATCH", $headers, $json)->getBody()->getContents();
     }
 
     /**
@@ -585,7 +612,7 @@ class CosmosDb
         $headers = \array_merge($headers, $authHeaders);
         $headers['Content-Length'] = '0';
         if ($partitionKey !== null) {
-            $headers['x-ms-documentdb-partitionkey'] = '["'.$partitionKey.'"]';
+            $headers['x-ms-documentdb-partitionkey'] = '["' . $partitionKey . '"]';
         }
 
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}", "DELETE", $headers)->getBody()->getContents();
@@ -935,7 +962,7 @@ class CosmosDb
      * @throws GuzzleException
      */
     public function deleteStoredProcedure(string $rid_id, string $rid_col, string $rid_sproc): string
-    {
+	 {
         $headers = $this->getAuthHeaders('DELETE', 'sprocs', $rid_sproc);
         $headers['Content-Length'] = '0';
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/sprocs/{$rid_sproc}", "DELETE", $headers)->getBody()->getContents();
@@ -952,7 +979,7 @@ class CosmosDb
      * @throws GuzzleException
      */
     public function listUserDefinedFunctions(string $rid_id, string $rid_col): string
-    {
+	 {
         $headers = $this->getAuthHeaders('GET', 'udfs', $rid_col);
         $headers['Content-Length'] = '0';
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/udfs", "GET", $headers)->getBody()->getContents();
@@ -970,7 +997,7 @@ class CosmosDb
      * @throws GuzzleException
      */
     public function createUserDefinedFunction(string $rid_id, string $rid_col, string $json): string
-    {
+	 {
         $headers = $this->getAuthHeaders('POST', 'udfs', $rid_col);
         $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/udfs", "POST", $headers, $json)->getBody()->getContents();
@@ -989,7 +1016,7 @@ class CosmosDb
      * @throws GuzzleException
      */
     public function replaceUserDefinedFunction(string $rid_id, string $rid_col, string $rid_udf, string $json): string
-    {
+	 {
         $headers = $this->getAuthHeaders('PUT', 'udfs', $rid_udf);
         $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/udfs/{$rid_udf}", "PUT", $headers, $json)->getBody()->getContents();
@@ -1007,7 +1034,7 @@ class CosmosDb
      * @throws GuzzleException
      */
     public function deleteUserDefinedFunction(string $rid_id, string $rid_col, string $rid_udf): string
-    {
+	 {
         $headers = $this->getAuthHeaders('DELETE', 'udfs', $rid_udf);
         $headers['Content-Length'] = '0';
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/udfs/{$rid_udf}", "DELETE", $headers)->getBody()->getContents();
@@ -1024,7 +1051,7 @@ class CosmosDb
      * @throws GuzzleException
      */
     public function listTriggers(string $rid_id, string $rid_col): string
-    {
+	 {
         $headers = $this->getAuthHeaders('GET', 'triggers', $rid_col);
         $headers['Content-Length'] = '0';
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/triggers", "GET", $headers)->getBody()->getContents();
@@ -1042,7 +1069,7 @@ class CosmosDb
      * @throws GuzzleException
      */
     public function createTrigger(string $rid_id, string $rid_col, string $json): string
-    {
+	 {
         $headers = $this->getAuthHeaders('POST', 'triggers', $rid_col);
         $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/triggers", "POST", $headers, $json)->getBody()->getContents();
@@ -1061,7 +1088,7 @@ class CosmosDb
      * @throws GuzzleException
      */
     public function replaceTrigger(string $rid_id, string $rid_col, string $rid_trigger, string $json): string
-    {
+	 {
         $headers = $this->getAuthHeaders('PUT', 'triggers', $rid_trigger);
         $headers['Content-Length'] = strlen($json);
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/triggers/{$rid_trigger}", "PUT", $headers, $json)->getBody()->getContents();
@@ -1079,7 +1106,7 @@ class CosmosDb
      * @throws GuzzleException
      */
     public function deleteTrigger(string $rid_id, string $rid_col, string $rid_trigger): string
-    {
+	 {
         $headers = $this->getAuthHeaders('DELETE', 'triggers', $rid_trigger);
         $headers['Content-Length'] = '0';
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/triggers/{$rid_trigger}", "DELETE", $headers)->getBody()->getContents();

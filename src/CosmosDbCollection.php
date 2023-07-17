@@ -35,9 +35,9 @@ class CosmosDbCollection
     {
         $paramsJson = [];
         foreach ($params as $key => $val) {
-            $val = is_int($val) || is_float($val) ? $val : '"'. str_replace('"', '\\"', $val) .'"';
+            $val = is_int($val) || is_float($val) ? $val : '"' . str_replace('"', '\\"', $val) . '"';
 
-            $paramsJson[] = '{"name": "' . str_replace('"', '\\"', $key) . '", "value": '.$val.'}';
+            $paramsJson[] = '{"name": "' . str_replace('"', '\\"', $key) . '", "value": ' . $val . '}';
         }
 
         $query = '{"query": "' . str_replace('"', '\\"', $query) . '", "parameters": [' . implode(',', $paramsJson) . ']}';
@@ -45,25 +45,25 @@ class CosmosDbCollection
         return $this->document_db->query($this->rid_db, $this->rid_col, $query, $isCrossPartition, $partitionValue);
     }
 
-	/**
-	 * getPkRanges
-	 *
-	 * @return mixed
-	 */
-	public function getPkRanges()
-	{
-		return $this->document_db->getPkRanges($this->rid_db, $this->rid_col);
-	}
+    /**
+     * getPkRanges
+     *
+     * @return mixed
+     */
+    public function getPkRanges()
+    {
+        return $this->document_db->getPkRanges($this->rid_db, $this->rid_col);
+    }
 
-	/**
-	 * getPkFullRange
-	 *
-	 * @return mixed
-	 */
-	public function getPkFullRange()
-	{
-		return $this->document_db->getPkFullRange($this->rid_db, $this->rid_col);
-	}
+    /**
+     * getPkFullRange
+     *
+     * @return mixed
+     */
+    public function getPkFullRange()
+    {
+        return $this->document_db->getPkFullRange($this->rid_db, $this->rid_col);
+    }
 
     /**
      * createDocument
@@ -92,6 +92,21 @@ class CosmosDbCollection
     public function replaceDocument($rid, $json, $partitionKey = null, array $headers = [])
     {
         return $this->document_db->replaceDocument($this->rid_db, $this->rid_col, $rid, $json, $partitionKey, $headers);
+    }
+
+    /**
+     * patchDocument
+     *
+     * @access public
+     * @param  string $rid document ResourceID (_rid)
+     * @param string $json JSON formatted operations array
+     * @param string $partitionKey
+     * @param array $headers Optional headers to send along with the request
+     * @return string JSON strings
+     */
+    public function patchDocument($rid_doc, $operations, $partitionKey = null, array $headers = [])
+    {
+        return $this->document_db->patchDocument($this->rid_db, $this->rid_col, $rid_doc, $operations, $partitionKey, $headers);
     }
 
     /**
@@ -134,7 +149,7 @@ class CosmosDbCollection
         return $this->document_db->getPermission($this->rid_db, $uid, $pid);
       }
     */
-    
+
     public function listStoredProcedures()
     {
         return $this->document_db->listStoredProcedures($this->rid_db, $this->rid_col);

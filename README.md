@@ -18,6 +18,9 @@ Include jupitern/cosmosdb in your project, by adding it to your composer.json fi
 
 ## Changelog
 
+### v2.7.0
+- adding support for PATCH verb (CosmosDb add-on PATCH API) with Add, Set, Replace, Remove, Increment and Move operations, including "getPatchOp[OP]" helper functions
+
 ### v2.6.0
 - code refactor. min PHP verion supported is now 8.0
 - selectCollection no longer creates a colletion if not exist. use createCollection for that
@@ -43,7 +46,8 @@ Include jupitern/cosmosdb in your project, by adding it to your composer.json fi
 This package adds additional functionalities to the [AzureDocumentDB-PHP](https://github.com/cocteau666/AzureDocumentDB-PHP) package. All other functionality exists in this package as well.
 
 ## Limitations
-Use of `limit()` or `order()` in cross-partition queries is currently not supported.
+- Use of `limit()` or `order()` in cross-partition queries is currently not supported.
+- Multi-document patch using transaction based requests is currently not supported.
 
 ## Usage
 
@@ -88,6 +92,52 @@ $rid = \Jupitern\CosmosDb\QueryBuilder::instance()
         'age' => 36, 
         'country' => 'Portugal'
     ]);
+```
+
+### Patching Records
+
+```php
+
+# Patch operations: ADD | SET | REPLACE | REMOVE | INCR | MOVE
+# https://learn.microsoft.com/en-us/azure/cosmos-db/partial-document-update#similarities-and-differences
+
+# Where a PartitionKey is in use, the PartitionValue should be set on the QueryBuilder instance
+# prior to making any PATCH operations, as by the nature of PATCH, there is no document body to find the value in, 
+# and the value is taken from the class property when the request is made. $rid_doc is also required because PATCH is an item-level operation.
+
+# Example starting document (as array)
+
+# [
+# 	"_rid" => $rid, 
+# 	'id' => '2', 
+# 	'name' => 'Jane Doe Something', 
+# 	'age' => 36, 
+# 	'country' => 'Portugal'
+# ]
+
+$res = \Jupitern\CosmosDb\QueryBuilder::instance()
+    ->setCollection($collection)
+    ->setPartitionKey('country')
+    ->setPartitionValue('Portugal');
+
+# Patch operations can be batched, so the $operations argument is an array of arrays
+# Batch patch operations are limited to 10 operations per request
+$operations[] = $res->getPatchOpSet('/age', 38);
+$operations[] = $res->getPatchOpAdd('/region' 'Algarve');
+
+$rid_doc = $res->patch($rid_doc, $operations);
+
+# Example patched document (as array)
+
+# [
+# 	"_rid" => $rid, 
+# 	'id' => '2', 
+# 	'name' => 'Jane Doe Something', 
+# 	'age' => 38, 
+# 	'country' => 'Portugal'
+#	'region' => 'Algarve'
+# ]
+
 ```
 
 ### Querying Records
