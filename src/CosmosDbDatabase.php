@@ -42,7 +42,7 @@ class CosmosDbDatabase
      * @return CosmosDbCollection|null
      * @throws GuzzleException
      */
-    public function createCollection(string $col_name, string $partitionKey = null): CosmosDbCollection|null
+    public function createCollection(string $col_name, ?string $partitionKey = null): CosmosDbCollection|null
     {
         $col_body = ["id" => $col_name];
         if ($partitionKey) {
