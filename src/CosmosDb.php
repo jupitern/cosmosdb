@@ -528,7 +528,7 @@ class CosmosDb
      * @return string JSON response
      * @throws GuzzleException
      */
-    public function createDocument(string $rid_id, string $rid_col, string $json, string $partitionKey = null, array $headers = []): string
+    public function createDocument(string $rid_id, string $rid_col, string $json, ?string $partitionKey = null, array $headers = []): string
     {
         $authHeaders = $this->getAuthHeaders('POST', 'docs', $rid_col);
         $headers = \array_merge($headers, $authHeaders);
@@ -554,7 +554,7 @@ class CosmosDb
      * @return string JSON response
      * @throws GuzzleException
      */
-    public function replaceDocument(string $rid_id, string $rid_col, string $rid_doc, string $json, string $partitionKey = null, array $headers = []): string
+    public function replaceDocument(string $rid_id, string $rid_col, string $rid_doc, string $json, ?string $partitionKey = null, array $headers = []): string
     {
         $authHeaders = $this->getAuthHeaders('PUT', 'docs', $rid_doc);
         $headers = \array_merge($headers, $authHeaders);
@@ -580,7 +580,7 @@ class CosmosDb
      * @return string JSON response
      * @throws GuzzleException
      */
-    public function patchDocument(string $rid_id, string $rid_col, string $rid_doc, string $json, string $partitionKey = null, array $headers = []): string
+    public function patchDocument(string $rid_id, string $rid_col, string $rid_doc, string $json, ?string $partitionKey = null, array $headers = []): string
     {
         $authHeaders = $this->getAuthHeaders('PATCH', 'docs', $rid_doc);
         $headers = \array_merge($headers, $authHeaders);
@@ -606,7 +606,7 @@ class CosmosDb
      * @return string JSON response
      * @throws GuzzleException
      */
-    public function deleteDocument(string $rid_id, string $rid_col, string $rid_doc, string $partitionKey = null, array $headers = []): string
+    public function deleteDocument(string $rid_id, string $rid_col, string $rid_doc, ?string $partitionKey = null, array $headers = []): string
     {
         $authHeaders = $this->getAuthHeaders('DELETE', 'docs', $rid_doc);
         $headers = \array_merge($headers, $authHeaders);
