@@ -2,6 +2,7 @@
 
 namespace Jupitern\CosmosDb;
 
+use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
 use Psr\Http\Message\ResponseInterface;
 
@@ -10,6 +11,7 @@ class CosmosDb
     private string $host;
     private string $private_key;
     public array $httpClientOptions;
+    private array $pkRanges = [];
 
     /**
      * __construct
@@ -153,11 +155,12 @@ class CosmosDb
      */
     public function query(string $rid_id, string $rid_col, string $query, bool $isCrossPartition = false, $partitionValue = null): array
     {
-        $headers = $this->getAuthHeaders('POST', 'docs', $rid_col);
-        $headers['Content-Length'] = strlen($query);
-        $headers['Content-Type'] = 'application/query+json';
-        $headers['x-ms-max-item-count'] = -1;
-        $headers['x-ms-documentdb-isquery'] = 'True';
+        $headers = $this->getAuthHeaders('POST', 'docs', $rid_col) + [
+            'Content-Length' => strlen($query),
+            'Content-Type' => 'application/query+json',
+            'x-ms-max-item-count' => -1,
+            'x-ms-documentdb-isquery' => 'True',
+        ];
 
         if ($isCrossPartition) {
             $headers['x-ms-documentdb-query-enablecrosspartition'] = 'True';
@@ -166,6 +169,64 @@ class CosmosDb
         if ($partitionValue) {
             $headers['x-ms-documentdb-partitionkey'] = '["' . $partitionValue . '"]';
         }
+
+        try {
+            return $this->getQueryResults($rid_id, $rid_col, $query, $headers);
+        }
+        catch (ClientException $e) {
+            $responseError = \json_decode($e->getResponse()->getBody()->getContents());
+
+            if(!($isCrossPartition && $responseError->code === "BadRequest" && strpos($responseError->message, "cross partition query can not be directly served by the gateway") !== false)) {
+                throw $e;
+            }
+        }
+
+        // -- Retry the request with PK Ranges --
+        // The provided cross partition query can not be directly served by the gateway.
+        // This is a first chance (internal) exception that all newer clients will know how to
+        // handle gracefully. This exception is traced, but unless you see it bubble up as an
+        // exception (which only happens on older SDK clients), then you can safely ignore this message.
+        $headers["x-ms-documentdb-partitionkeyrangeid"] = $this->getPkFullRange($rid_id, $rid_col);
+
+        try {
+            return $this->getQueryResults($rid_id, $rid_col, $query, $headers);
+        } catch (ClientException $e) {
+            $responseError = \json_decode($e->getResponse()->getBody()->getContents());
+
+            if($responseError->code === "BadRequest" && strpos($responseError->message, "x-ms-documentdb-partitionkeyrangeid header contains invalid value") !== false) {
+                // -- Retry a request for each Partition Key Range --
+                // Azure CosmosDB does not support the x-ms-documentdb-partitionkeyrangeid header
+                // in PkFullRange format.
+                // We need to make a request for each partition one by one.
+                // BUT: Each partition will be in separate array element, and the order clause will
+                // be dispersed across the array elements.
+                $pkRanges = $this->getPkRanges($rid_id, $rid_col);
+                $results = [];
+                foreach ($pkRanges->PartitionKeyRanges as $rid) {
+                    $headers["x-ms-documentdb-partitionkeyrangeid"] = $rid->id;
+                    $results = array_merge($results, $this->getQueryResults($rid_id, $rid_col, $query, $headers));
+                }
+            }
+            else {
+                throw $e;
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * getQueryResults
+     *
+     * @param string $rid_id Resource ID
+     * @param string $rid_col Resource Collection ID
+     * @param string $query Query
+     * @param array $headers Request headers
+     * @return array JSON response
+     * @throws GuzzleException
+     */
+    private function getQueryResults(string $rid_id, string $rid_col, string $query, array $headers): array
+    {
         /*
          * Fix for https://github.com/jupitern/cosmosdb/issues/21 (credits to https://github.com/ElvenSpellmaker).
          *
@@ -178,37 +239,11 @@ class CosmosDb
          * all results are loaded.
          */
         $results = [];
-        try {
-            $result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $query);
-            $results[] = $result->getBody()->getContents();
-            while ($result->getHeader('x-ms-continuation') !== []) {
-                $headers['x-ms-continuation'] = $result->getHeader('x-ms-continuation');
-                $result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $query);
-                $results[] = $result->getBody()->getContents();
-            }
-        } 
-		  catch (\GuzzleHttp\Exception\ClientException $e) {
-            $responseError = \json_decode($e->getResponse()->getBody()->getContents());
-
-            // -- Retry the request with PK Ranges --
-            // The provided cross partition query can not be directly served by the gateway.
-            // This is a first chance (internal) exception that all newer clients will know how to
-            // handle gracefully. This exception is traced, but unless you see it bubble up as an
-            // exception (which only happens on older SDK clients), then you can safely ignore this message.
-            if ($isCrossPartition && $responseError->code === "BadRequest" && strpos($responseError->message, "cross partition query can not be directly served by the gateway") !== false) {
-                $headers["x-ms-documentdb-partitionkeyrangeid"] = $this->getPkFullRange($rid_id, $rid_col);
-                $result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $query);
-                $results[] = $result->getBody()->getContents();
-                while ($result->getHeader('x-ms-continuation') !== []) {
-                    $headers['x-ms-continuation'] = $result->getHeader('x-ms-continuation');
-                    $result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $query);
-                    $results[] = $result->getBody()->getContents();
-                }
-            } else {
-                throw $e;
-            }
-        }
-
+        do {
+            $response = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs", "POST", $headers, $query);
+            $results[] = $response->getBody()->getContents();
+            $headers['x-ms-continuation'] = $response->getHeader('x-ms-continuation');
+        } while ($headers['x-ms-continuation'] !== []);
         return $results;
     }
 
@@ -222,11 +257,18 @@ class CosmosDb
      */
     public function getPkRanges(string $rid_id, string $rid_col): mixed
     {
+        if(isset($this->pkRanges[$rid_id][$rid_col])) {
+            return $this->pkRanges[$rid_id][$rid_col];
+        }
+
         $headers = $this->getAuthHeaders('GET', 'pkranges', $rid_col);
         $headers['Accept'] = 'application/json';
         $headers['x-ms-max-item-count'] = -1;
         $result = $this->request("/dbs/{$rid_id}/colls/{$rid_col}/pkranges", "GET", $headers);
-        return json_decode($result->getBody()->getContents());
+
+        $this->pkRanges[$rid_id][$rid_col] = json_decode($result->getBody()->getContents());
+
+        return $this->pkRanges[$rid_id][$rid_col];
     }
 
     /**
@@ -508,10 +550,6 @@ class CosmosDb
     {
         $headers = $this->getAuthHeaders('GET', 'docs', $rid_doc);
         $headers['Content-Length'] = '0';
-        $options = array(
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_HTTPGET => true,
-        );
         return $this->request("/dbs/{$rid_id}/colls/{$rid_col}/docs/{$rid_doc}", "GET", $headers)->getBody()->getContents();
     }
 
